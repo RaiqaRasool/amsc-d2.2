@@ -1,0 +1,3 @@
+Flask
+globus-sdk
+python-dotenv
