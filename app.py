@@ -10,6 +10,7 @@ from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
 load_dotenv()
 
 TRANSFER_RESOURCE_SERVER = "transfer.api.globus.org"
+TRANSFER_LABEL_PREFIX = "AmSC MYA Delivery - "
 
 # ponytail: in-memory state store for local dev; use server-side session storage
 # if this runs with multiple processes or restarts between login and callback.
@@ -51,15 +52,46 @@ def destination_file_path(destination_folder, source_path):
     return posixpath.join(destination_folder.rstrip("/") or "/", filename)
 
 
+def transfer_label(user_label):
+    user_label = user_label.strip()
+    if not user_label:
+        user_label = "Transfer"
+    if user_label.startswith(TRANSFER_LABEL_PREFIX):
+        return user_label
+    return f"{TRANSFER_LABEL_PREFIX}{user_label}"
+
+
+def task_source_collection_id(task):
+    return task.get("source_endpoint_id", task.get("source_endpoint"))
+
+
+def app_transfers(client):
+    source_collection_id = required_env("SOURCE_COLLECTION_ID")
+    tasks = client.task_list(
+        limit=20,
+        orderby="request_time DESC",
+        filter={
+            "type": "TRANSFER",
+            "endpoint_id": source_collection_id,
+            "label": f"~{TRANSFER_LABEL_PREFIX}*",
+        },
+    )
+    return [
+        task
+        for task in tasks
+        if task_source_collection_id(task) == source_collection_id
+    ]
+
+
 @app.get("/")
 def index():
+    client = transfer_client()
     return render_template(
         "index.html",
         logged_in=session.get("logged_in"),
         destination_collection_id=session.get("destination_collection_id"),
         destination_path=session.get("destination_path"),
-        last_transfer_task_id=session.get("last_transfer_task_id"),
-        last_transfer_label=session.get("last_transfer_label"),
+        transfers=app_transfers(client) if client is not None else [],
     )
 
 
@@ -177,22 +209,25 @@ def submit_transfer():
     if not destination_collection_id or not destination_folder:
         return "Choose a destination folder before submitting a transfer.", 400
 
-    transfer_label = request.form.get("transfer_label", "").strip()
-    if not transfer_label:
-        transfer_label = "AmSC web prototype transfer"
+    label = transfer_label(request.form.get("transfer_label", ""))
 
     destination_path = destination_file_path(destination_folder, source_path)
     task_data = globus_sdk.TransferData(
         source_endpoint=source_collection_id,
         destination_endpoint=destination_collection_id,
-        label=transfer_label,
+        label=label,
     )
     task_data.add_item(source_path, destination_path)
 
-    result = client.submit_transfer(task_data)
-    session["last_transfer_task_id"] = result["task_id"]
-    session["last_transfer_label"] = transfer_label
+    client.submit_transfer(task_data)
 
+    return redirect(url_for("index"))
+
+
+@app.post("/transfers/refresh")
+def refresh_transfers():
+    if transfer_client() is None:
+        return redirect(url_for("login"))
     return redirect(url_for("index"))
 
 

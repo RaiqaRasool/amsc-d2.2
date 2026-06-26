@@ -25,6 +25,13 @@ SOURCE_PATH=/path/to/source/file
 The selected destination folder comes from the web UI. The app submits the
 source file into that folder using the source filename.
 
+Submitted transfers are labeled with this prefix so the app can find recent
+app-created transfers from Globus:
+
+```text
+AmSC MYA Delivery - <user label>
+```
+
 ## Reference Prototype
 
 `../globus_cli_demo/` is the source of verified project behavior for:

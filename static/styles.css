@@ -78,6 +78,18 @@ a {
   font-size: 18px;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -88,6 +100,11 @@ a {
   color: var(--success-text);
   font-size: 13px;
   font-weight: 600;
+}
+
+.status-neutral {
+  background: #eef2f6;
+  color: #415064;
 }
 
 .meta {
@@ -210,6 +227,30 @@ button:hover,
 .file-type {
   color: var(--muted);
   font-size: 13px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 @media (max-width: 640px) {

@@ -52,28 +52,46 @@
               <form action="{{ url_for('submit_transfer') }}" method="post" class="form-row">
                 <label>
                   Transfer label
-                  <input name="transfer_label" value="AmSC web prototype transfer">
+                  <input name="transfer_label" value="test transfer">
                 </label>
                 <button type="submit">Submit test transfer</button>
               </form>
             </section>
           {% endif %}
 
-          {% if last_transfer_task_id %}
+          {% if transfers %}
             <section class="panel">
-              <h2>Latest transfer</h2>
-              <dl class="meta">
-                {% if last_transfer_label %}
-                  <div class="meta-row">
-                    <dt>Label</dt>
-                    <dd><code>{{ last_transfer_label }}</code></dd>
-                  </div>
-                {% endif %}
-                <div class="meta-row">
-                  <dt>Task ID</dt>
-                  <dd><code>{{ last_transfer_task_id }}</code></dd>
-                </div>
-              </dl>
+              <div class="section-header">
+                <h2>Transfers</h2>
+                <form action="{{ url_for('refresh_transfers') }}" method="post">
+                  <button type="submit" class="button-secondary">Refresh statuses</button>
+                </form>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Label</th>
+                      <th>Status</th>
+                      <th>Task ID</th>
+                      <th>Destination collection</th>
+                      <th>Requested</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for transfer in transfers %}
+                      <tr>
+                        <td>{{ transfer.get("label", "") }}</td>
+                        <td><span class="status status-neutral">{{ transfer.get("status", "UNKNOWN") }}</span></td>
+                        <td><code>{{ transfer.get("task_id", "") }}</code></td>
+                        <td><code>{{ transfer.get("destination_endpoint_id", "") }}</code></td>
+                        <td>{{ transfer.get("request_time", "") }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
             </section>
           {% endif %}
         {% else %}
