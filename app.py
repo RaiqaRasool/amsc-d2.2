@@ -48,7 +48,12 @@ def child_path(parent_path, name):
 
 @app.get("/")
 def index():
-    return render_template("index.html", logged_in=session.get("logged_in"))
+    return render_template(
+        "index.html",
+        logged_in=session.get("logged_in"),
+        destination_collection_id=session.get("destination_collection_id"),
+        destination_path=session.get("destination_path"),
+    )
 
 
 @app.get("/login")
@@ -130,6 +135,24 @@ def browse_collection(collection_id):
         entries=entries,
         child_path=child_path,
     )
+
+
+@app.post("/destination/select")
+def select_destination():
+    if transfer_client() is None:
+        return redirect(url_for("login"))
+
+    collection_id = request.form.get("collection_id", "").strip()
+    path = request.form.get("path", "").strip() or "/"
+    if not collection_id:
+        return "Missing destination collection.", 400
+    if not path.startswith("/"):
+        path = "/" + path
+
+    session["destination_collection_id"] = collection_id
+    session["destination_path"] = path
+
+    return redirect(url_for("index"))
 
 
 @app.get("/logout")

@@ -9,6 +9,12 @@
 
     {% if logged_in %}
       <p>Logged in with Globus.</p>
+      {% if destination_collection_id and destination_path %}
+        <h2>Selected destination</h2>
+        <p>Collection: <code>{{ destination_collection_id }}</code></p>
+        <p>Path: <code>{{ destination_path }}</code></p>
+      {% endif %}
+
       <form action="{{ url_for('search_collections') }}" method="get">
         <label>
           Destination collection search:
