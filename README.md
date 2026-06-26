@@ -32,6 +32,40 @@ app-created transfers from Globus:
 AmSC MYA Delivery - <user label>
 ```
 
+## Run With Docker
+
+Use Docker Compose for local development. This keeps every developer on the
+same Python and Globus SDK versions.
+
+Start the app:
+
+```bash
+docker compose up --build
+```
+
+For later runs, when `Dockerfile` and dependencies have not changed:
+
+```bash
+docker compose up
+```
+
+Stop the app with `Ctrl+C`, or from another terminal:
+
+```bash
+docker compose down
+```
+
+The app is available at `http://localhost:5000`. Keep the Globus redirect URI
+registered as:
+
+```text
+http://localhost:5000/callback
+```
+
+The image only provides Python. Compose mounts this directory into the
+container, installs `requirements.txt` from the mounted checkout, and runs
+`python app.py`.
+
 ## Reference Prototype
 
 `../globus_cli_demo/` is the source of verified project behavior for:
