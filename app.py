@@ -1,10 +1,9 @@
 import os
 import secrets
-from html import escape
 
 import globus_sdk
 from dotenv import load_dotenv
-from flask import Flask, redirect, request, session, url_for
+from flask import Flask, redirect, render_template, request, session, url_for
 from globus_sdk.scopes import TransferScopes
 
 load_dotenv()
@@ -44,23 +43,7 @@ def transfer_client():
 
 @app.get("/")
 def index():
-    if session.get("logged_in"):
-        return (
-            "<h1>AmSC Globus Data Delivery</h1>"
-            "<p>Logged in with Globus.</p>"
-            '<form action="/collections/search" method="get">'
-            '<label>Destination collection search: '
-            '<input name="q" required></label> '
-            '<button type="submit">Search</button>'
-            "</form>"
-            '<p><a href="/logout">Logout</a></p>'
-        )
-
-    return (
-        "<h1>AmSC Globus Data Delivery</h1>"
-        "<p>Not logged in.</p>"
-        '<p><a href="/login">Login with Globus</a></p>'
-    )
+    return render_template("index.html", logged_in=session.get("logged_in"))
 
 
 @app.get("/login")
@@ -118,22 +101,7 @@ def search_collections():
         return redirect(url_for("index"))
 
     results = list(client.endpoint_search(filter_fulltext=query))[:10]
-    items = "".join(
-        "<li>"
-        f"<strong>{escape(result.get('display_name', 'Unnamed collection'))}</strong>"
-        f"<br><code>{escape(result.get('id', ''))}</code>"
-        "</li>"
-        for result in results
-    )
-    if not items:
-        items = "<li>No collections found.</li>"
-
-    return (
-        "<h1>Collection Search</h1>"
-        f"<p>Search: <strong>{escape(query)}</strong></p>"
-        f"<ol>{items}</ol>"
-        '<p><a href="/">Back</a></p>'
-    )
+    return render_template("collection_search.html", query=query, results=results)
 
 
 @app.get("/logout")
