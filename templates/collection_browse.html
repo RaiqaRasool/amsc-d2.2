@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Browse Collection</title>
+  </head>
+  <body>
+    <h1>Browse Collection</h1>
+    <p>Collection: <code>{{ collection_id }}</code></p>
+    <p>Path: <code>{{ path }}</code></p>
+
+    {% if path != "/" %}
+      <p>
+        <a href="{{ url_for('browse_collection', collection_id=collection_id, path=parent_path) }}">Up one folder</a>
+      </p>
+    {% endif %}
+
+    <ol>
+      {% for entry in entries %}
+        <li>
+          {% if entry.get("type") == "dir" %}
+            <a href="{{ url_for('browse_collection', collection_id=collection_id, path=child_path(path, entry.get('name', ''))) }}">
+              {{ entry.get("name", "") }}/
+            </a>
+          {% else %}
+            {{ entry.get("name", "") }}
+          {% endif %}
+          <small>{{ entry.get("type", "") }}</small>
+        </li>
+      {% else %}
+        <li>No entries found.</li>
+      {% endfor %}
+    </ol>
+
+    <p><a href="{{ url_for('index') }}">Back to search</a></p>
+  </body>
+</html>

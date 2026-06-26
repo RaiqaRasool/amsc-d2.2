@@ -1,4 +1,5 @@
 import os
+import posixpath
 import secrets
 
 import globus_sdk
@@ -39,6 +40,10 @@ def transfer_client():
         return None
     authorizer = globus_sdk.AccessTokenAuthorizer(access_token)
     return globus_sdk.TransferClient(authorizer=authorizer)
+
+
+def child_path(parent_path, name):
+    return posixpath.join(parent_path.rstrip("/") or "/", name)
 
 
 @app.get("/")
@@ -102,6 +107,29 @@ def search_collections():
 
     results = list(client.endpoint_search(filter_fulltext=query))[:10]
     return render_template("collection_search.html", query=query, results=results)
+
+
+@app.get("/collections/<collection_id>/browse")
+def browse_collection(collection_id):
+    client = transfer_client()
+    if client is None:
+        return redirect(url_for("login"))
+
+    path = request.args.get("path", "/").strip() or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+
+    entries = list(client.operation_ls(collection_id, path=path))
+    parent_path = posixpath.dirname(path.rstrip("/")) or "/"
+
+    return render_template(
+        "collection_browse.html",
+        collection_id=collection_id,
+        path=path,
+        parent_path=parent_path,
+        entries=entries,
+        child_path=child_path,
+    )
 
 
 @app.get("/logout")
