@@ -3,29 +3,87 @@
   <head>
     <meta charset="utf-8">
     <title>AmSC Globus Data Delivery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
   <body>
-    <h1>AmSC Globus Data Delivery</h1>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 class="brand">AmSC Globus Data Delivery</h1>
+        {% if logged_in %}
+          <a href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
+      </div>
+    </header>
 
-    {% if logged_in %}
-      <p>Logged in with Globus.</p>
-      {% if destination_collection_id and destination_path %}
-        <h2>Selected destination</h2>
-        <p>Collection: <code>{{ destination_collection_id }}</code></p>
-        <p>Path: <code>{{ destination_path }}</code></p>
-      {% endif %}
+    <main class="container">
+      <div class="stack">
+        {% if logged_in %}
+          <section class="panel">
+            <span class="status">Logged in with Globus</span>
+          </section>
 
-      <form action="{{ url_for('search_collections') }}" method="get">
-        <label>
-          Destination collection search:
-          <input name="q" required>
-        </label>
-        <button type="submit">Search</button>
-      </form>
-      <p><a href="{{ url_for('logout') }}">Logout</a></p>
-    {% else %}
-      <p>Not logged in.</p>
-      <p><a href="{{ url_for('login') }}">Login with Globus</a></p>
-    {% endif %}
+          <section class="panel">
+            <h2>Destination</h2>
+            {% if destination_collection_id and destination_path %}
+              <dl class="meta">
+                <div class="meta-row">
+                  <dt>Collection</dt>
+                  <dd><code>{{ destination_collection_id }}</code></dd>
+                </div>
+                <div class="meta-row">
+                  <dt>Path</dt>
+                  <dd><code>{{ destination_path }}</code></dd>
+                </div>
+              </dl>
+            {% endif %}
+
+            <form action="{{ url_for('search_collections') }}" method="get" class="form-row">
+              <label>
+                Destination collection search
+                <input name="q" required>
+              </label>
+              <button type="submit">Search</button>
+            </form>
+          </section>
+
+          {% if destination_collection_id and destination_path %}
+            <section class="panel">
+              <h2>Submit transfer</h2>
+              <form action="{{ url_for('submit_transfer') }}" method="post" class="form-row">
+                <label>
+                  Transfer label
+                  <input name="transfer_label" value="AmSC web prototype transfer">
+                </label>
+                <button type="submit">Submit test transfer</button>
+              </form>
+            </section>
+          {% endif %}
+
+          {% if last_transfer_task_id %}
+            <section class="panel">
+              <h2>Latest transfer</h2>
+              <dl class="meta">
+                {% if last_transfer_label %}
+                  <div class="meta-row">
+                    <dt>Label</dt>
+                    <dd><code>{{ last_transfer_label }}</code></dd>
+                  </div>
+                {% endif %}
+                <div class="meta-row">
+                  <dt>Task ID</dt>
+                  <dd><code>{{ last_transfer_task_id }}</code></dd>
+                </div>
+              </dl>
+            </section>
+          {% endif %}
+        {% else %}
+          <section class="panel">
+            <h2>Sign in</h2>
+            <p>Not logged in.</p>
+            <p><a class="button" href="{{ url_for('login') }}">Login with Globus</a></p>
+          </section>
+        {% endif %}
+      </div>
+    </main>
   </body>
 </html>

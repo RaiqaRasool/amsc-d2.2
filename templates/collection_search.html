@@ -3,25 +3,37 @@
   <head>
     <meta charset="utf-8">
     <title>Collection Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
   <body>
-    <h1>Collection Search</h1>
-    <p>Search: <strong>{{ query }}</strong></p>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 class="brand">Collection Search</h1>
+        <a href="{{ url_for('index') }}">Home</a>
+      </div>
+    </header>
 
-    <ol>
-      {% for result in results %}
-        <li>
-          <strong>{{ result.get("display_name", "Unnamed collection") }}</strong>
-          <br>
-          <code>{{ result.get("id", "") }}</code>
-          <br>
-          <a href="{{ url_for('browse_collection', collection_id=result.get('id'), path='/') }}">Browse</a>
-        </li>
-      {% else %}
-        <li>No collections found.</li>
-      {% endfor %}
-    </ol>
+    <main class="container">
+      <section class="panel">
+        <h2>Results for "{{ query }}"</h2>
 
-    <p><a href="{{ url_for('index') }}">Back</a></p>
+        <ol class="result-list">
+          {% for result in results %}
+            <li class="result-item">
+              <strong class="result-title">{{ result.get("display_name", "Unnamed collection") }}</strong>
+              <dl class="meta">
+                <div class="meta-row">
+                  <dt>Collection ID</dt>
+                  <dd><code>{{ result.get("id", "") }}</code></dd>
+                </div>
+              </dl>
+              <a class="button" href="{{ url_for('browse_collection', collection_id=result.get('id'), path='/') }}">Browse</a>
+            </li>
+          {% else %}
+            <li class="result-item">No collections found.</li>
+          {% endfor %}
+        </ol>
+      </section>
+    </main>
   </body>
 </html>

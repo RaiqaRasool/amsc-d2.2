@@ -29,6 +29,7 @@ If documentation is unclear, say so instead of guessing. Prefer verified officia
 - Avoid broad refactors and speculative features.
 - Prefer the smallest change that correctly advances the current milestone.
 - Add dependencies only when the current step clearly needs them.
+- Before starting a new logical step, check `git status --short`. If the previous step is still uncommitted, stop and ask the user whether to commit it before continuing.
 - Explain every code change: files modified, what changed, why, how it works, how it fits the architecture, and alternatives considered.
 - When asked for a commit message, use the `git-commit-formatter` skill if it is available. If it is not available, provide a short imperative commit message that clearly names the change.
 

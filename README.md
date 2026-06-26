@@ -13,6 +13,18 @@ Build one small step at a time:
 5. Submit a transfer for a known test file.
 6. Bring in the minimal MYA archive/export logic after the Globus web flow works.
 
+## Local Configuration
+
+For the fixed-source transfer test, set these local-only values in `.env`:
+
+```text
+SOURCE_COLLECTION_ID=<source-collection-id>
+SOURCE_PATH=/path/to/source/file
+```
+
+The selected destination folder comes from the web UI. The app submits the
+source file into that folder using the source filename.
+
 ## Reference Prototype
 
 `../globus_cli_demo/` is the source of verified project behavior for:

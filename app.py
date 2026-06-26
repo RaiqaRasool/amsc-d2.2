@@ -5,7 +5,7 @@ import secrets
 import globus_sdk
 from dotenv import load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
-from globus_sdk.scopes import TransferScopes
+from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
 
 load_dotenv()
 
@@ -46,6 +46,11 @@ def child_path(parent_path, name):
     return posixpath.join(parent_path.rstrip("/") or "/", name)
 
 
+def destination_file_path(destination_folder, source_path):
+    filename = posixpath.basename(source_path.rstrip("/"))
+    return posixpath.join(destination_folder.rstrip("/") or "/", filename)
+
+
 @app.get("/")
 def index():
     return render_template(
@@ -53,6 +58,8 @@ def index():
         logged_in=session.get("logged_in"),
         destination_collection_id=session.get("destination_collection_id"),
         destination_path=session.get("destination_path"),
+        last_transfer_task_id=session.get("last_transfer_task_id"),
+        last_transfer_label=session.get("last_transfer_label"),
     )
 
 
@@ -62,9 +69,10 @@ def login():
     PENDING_OAUTH_STATES.add(state)
 
     client = auth_client()
+    source_data_access = GCSCollectionScopes(required_env("SOURCE_COLLECTION_ID")).data_access
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
-        requested_scopes=TransferScopes.all,
+        requested_scopes=TransferScopes.all.with_dependencies([source_data_access]),
         state=state,
     )
     return redirect(client.oauth2_get_authorize_url())
@@ -86,9 +94,10 @@ def callback():
         return "Missing OAuth code.", 400
 
     client = auth_client()
+    source_data_access = GCSCollectionScopes(required_env("SOURCE_COLLECTION_ID")).data_access
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
-        requested_scopes=TransferScopes.all,
+        requested_scopes=TransferScopes.all.with_dependencies([source_data_access]),
         state=returned_state,
     )
     token_response = client.oauth2_exchange_code_for_tokens(code)
@@ -151,6 +160,38 @@ def select_destination():
 
     session["destination_collection_id"] = collection_id
     session["destination_path"] = path
+
+    return redirect(url_for("index"))
+
+
+@app.post("/transfer/submit")
+def submit_transfer():
+    client = transfer_client()
+    if client is None:
+        return redirect(url_for("login"))
+
+    source_collection_id = required_env("SOURCE_COLLECTION_ID")
+    source_path = required_env("SOURCE_PATH")
+    destination_collection_id = session.get("destination_collection_id")
+    destination_folder = session.get("destination_path")
+    if not destination_collection_id or not destination_folder:
+        return "Choose a destination folder before submitting a transfer.", 400
+
+    transfer_label = request.form.get("transfer_label", "").strip()
+    if not transfer_label:
+        transfer_label = "AmSC web prototype transfer"
+
+    destination_path = destination_file_path(destination_folder, source_path)
+    task_data = globus_sdk.TransferData(
+        source_endpoint=source_collection_id,
+        destination_endpoint=destination_collection_id,
+        label=transfer_label,
+    )
+    task_data.add_item(source_path, destination_path)
+
+    result = client.submit_transfer(task_data)
+    session["last_transfer_task_id"] = result["task_id"]
+    session["last_transfer_label"] = transfer_label
 
     return redirect(url_for("index"))
 
