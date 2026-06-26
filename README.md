@@ -32,6 +32,9 @@ app-created transfers from Globus:
 AmSC MYA Delivery - <user label>
 ```
 
+The Transfers table shows app-level statuses derived from Globus task statuses,
+such as `IN PROGRESS`, `SUCCEEDED`, `FAILED`, and `QUEUED`.
+
 ## Run With Docker
 
 Use Docker Compose for local development. This keeps every developer on the

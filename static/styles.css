@@ -102,6 +102,32 @@ a {
   font-weight: 600;
 }
 
+.status-in-progress {
+  background: #e7f1fb;
+  color: #0a5b95;
+}
+
+.status-succeeded {
+  background: #eaf7ee;
+  color: #276738;
+}
+
+.status-failed {
+  background: #fdeceb;
+  color: #9f2f24;
+}
+
+.status-active-with-errors {
+  background: #fff3df;
+  color: #8a5200;
+}
+
+.status-queued {
+  background: #f7f0ff;
+  color: #67418c;
+}
+
+.status-unknown,
 .status-neutral {
   background: #eef2f6;
   color: #415064;

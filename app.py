@@ -65,6 +65,36 @@ def task_source_collection_id(task):
     return task.get("source_endpoint_id", task.get("source_endpoint"))
 
 
+def app_transfer_status(task):
+    status = task.get("status", "UNKNOWN")
+    failed = int(task.get("subtasks_failed", 0) or 0)
+
+    if status == "FAILED":
+        return "FAILED"
+    if status == "SUCCEEDED":
+        return "SUCCEEDED"
+    if status == "ACTIVE" and failed:
+        return "ACTIVE WITH ERRORS"
+    if status == "ACTIVE":
+        return "IN PROGRESS"
+    if status == "INACTIVE":
+        return "QUEUED"
+    return status
+
+
+def status_class(app_status):
+    return "status-" + app_status.lower().replace(" ", "-")
+
+
+def transfer_row(task):
+    app_status = app_transfer_status(task)
+    return {
+        **task,
+        "app_status": app_status,
+        "status_class": status_class(app_status),
+    }
+
+
 def app_transfers(client):
     source_collection_id = required_env("SOURCE_COLLECTION_ID")
     tasks = client.task_list(
@@ -77,7 +107,7 @@ def app_transfers(client):
         },
     )
     return [
-        task
+        transfer_row(task)
         for task in tasks
         if task_source_collection_id(task) == source_collection_id
     ]

@@ -83,7 +83,11 @@
                     {% for transfer in transfers %}
                       <tr>
                         <td>{{ transfer.get("label", "") }}</td>
-                        <td><span class="status status-neutral">{{ transfer.get("status", "UNKNOWN") }}</span></td>
+                        <td>
+                          <span class="status {{ transfer.get('status_class', 'status-unknown') }}">
+                            {{ transfer.get("app_status", "UNKNOWN") }}
+                          </span>
+                        </td>
                         <td><code>{{ transfer.get("task_id", "") }}</code></td>
                         <td><code>{{ transfer.get("destination_endpoint_id", "") }}</code></td>
                         <td>{{ transfer.get("request_time", "") }}</td>
