@@ -11,4 +11,5 @@ services:
       - "5000:5000"
     volumes:
       - .:/app
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output
     command: sh -c "pip install --no-cache-dir -r requirements.txt && python app.py"
