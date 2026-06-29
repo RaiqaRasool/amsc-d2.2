@@ -120,6 +120,7 @@ def index():
         "index.html",
         logged_in=session.get("logged_in"),
         destination_collection_id=session.get("destination_collection_id"),
+        destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
         transfers=app_transfers(client) if client is not None else [],
     )
@@ -210,7 +211,8 @@ def browse_collection(collection_id):
 
 @app.post("/destination/select")
 def select_destination():
-    if transfer_client() is None:
+    client = transfer_client()
+    if client is None:
         return redirect(url_for("login"))
 
     collection_id = request.form.get("collection_id", "").strip()
@@ -220,7 +222,16 @@ def select_destination():
     if not path.startswith("/"):
         path = "/" + path
 
+    collection = client.get_endpoint(
+        collection_id,
+        query_params={"fields": "display_name,canonical_name"},
+    )
     session["destination_collection_id"] = collection_id
+    session["destination_collection_name"] = (
+        collection.get("display_name")
+        or collection.get("canonical_name")
+        or "Unknown collection"
+    )
     session["destination_path"] = path
 
     return redirect(url_for("index"))

@@ -28,7 +28,9 @@
               <dl class="meta">
                 <div class="meta-row">
                   <dt>Collection</dt>
-                  <dd><code>{{ destination_collection_id }}</code></dd>
+                  <dd title="Collection ID: {{ destination_collection_id }}">
+                    <strong>{{ destination_collection_name or "Unknown collection" }}</strong>
+                  </dd>
                 </div>
                 <div class="meta-row">
                   <dt>Path</dt>
