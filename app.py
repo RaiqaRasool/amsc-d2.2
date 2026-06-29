@@ -59,6 +59,21 @@ def child_path(parent_path, name):
     return posixpath.join(parent_path.rstrip("/") or "/", name)
 
 
+def collection_browse_error(error):
+    message = error.message or "The collection did not respond."
+    if any(
+        phrase in message.lower()
+        for phrase in ("not connected", "offline", "timed out", "unavailable")
+    ):
+        return (
+            "This collection is currently unavailable. If it is on a personal "
+            "computer, make sure Globus Connect Personal is running, then try again."
+        )
+    if error.code == "OperationPaused":
+        return f"This collection is currently paused. {message}"
+    return f"Globus could not browse this collection. {message}"
+
+
 def destination_file_path(destination_folder, source_path):
     filename = posixpath.basename(source_path.rstrip("/"))
     return posixpath.join(destination_folder.rstrip("/") or "/", filename)
@@ -197,7 +212,9 @@ def search_collections():
     if not query:
         return redirect(url_for("index"))
 
-    results = list(client.endpoint_search(filter_fulltext=query))[:10]
+    results = list(
+        client.endpoint_search(filter_fulltext=query, filter_non_functional=False)
+    )[:10]
     return render_template("collection_search.html", query=query, results=results)
 
 
@@ -211,18 +228,20 @@ def browse_collection(collection_id):
     if not path.startswith("/"):
         path = "/" + path
 
+    browse_error = None
     try:
         entries = list(client.operation_ls(collection_id, path=path))
     except GlobusAPIError as error:
-        if not error.info.consent_required:
-            raise
-        session["consent_collection_id"] = collection_id
-        session["post_auth_redirect"] = url_for(
-            "browse_collection",
-            collection_id=collection_id,
-            path=path,
-        )
-        return redirect(url_for("login"))
+        if error.info.consent_required:
+            session["consent_collection_id"] = collection_id
+            session["post_auth_redirect"] = url_for(
+                "browse_collection",
+                collection_id=collection_id,
+                path=path,
+            )
+            return redirect(url_for("login"))
+        entries = []
+        browse_error = collection_browse_error(error)
     parent_path = posixpath.dirname(path.rstrip("/")) or "/"
 
     return render_template(
@@ -231,6 +250,7 @@ def browse_collection(collection_id):
         path=path,
         parent_path=parent_path,
         entries=entries,
+        browse_error=browse_error,
         child_path=child_path,
     )
 
