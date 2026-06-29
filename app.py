@@ -261,6 +261,14 @@ def refresh_transfers():
     return redirect(url_for("index"))
 
 
+@app.get("/transfers")
+def transfers():
+    client = transfer_client()
+    if client is None:
+        return "", 401
+    return render_template("_transfers.html", transfers=app_transfers(client))
+
+
 @app.get("/logout")
 def logout():
     session.clear()

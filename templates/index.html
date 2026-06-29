@@ -59,45 +59,9 @@
             </section>
           {% endif %}
 
-          {% if transfers %}
-            <section class="panel">
-              <div class="section-header">
-                <h2>Transfers</h2>
-                <form action="{{ url_for('refresh_transfers') }}" method="post">
-                  <button type="submit" class="button-secondary">Refresh statuses</button>
-                </form>
-              </div>
-
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Label</th>
-                      <th>Status</th>
-                      <th>Task ID</th>
-                      <th>Destination collection</th>
-                      <th>Requested</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for transfer in transfers %}
-                      <tr>
-                        <td>{{ transfer.get("label", "") }}</td>
-                        <td>
-                          <span class="status {{ transfer.get('status_class', 'status-unknown') }}">
-                            {{ transfer.get("app_status", "UNKNOWN") }}
-                          </span>
-                        </td>
-                        <td><code>{{ transfer.get("task_id", "") }}</code></td>
-                        <td><code>{{ transfer.get("destination_endpoint_id", "") }}</code></td>
-                        <td>{{ transfer.get("request_time", "") }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          {% endif %}
+          <div id="transfers" data-refresh-url="{{ url_for('transfers') }}">
+            {% include "_transfers.html" %}
+          </div>
         {% else %}
           <section class="panel">
             <h2>Sign in</h2>
@@ -107,5 +71,22 @@
         {% endif %}
       </div>
     </main>
+
+    {% if logged_in %}
+      <script>
+        const transfers = document.querySelector("#transfers");
+
+        setInterval(async () => {
+          try {
+            const response = await fetch(transfers.dataset.refreshUrl);
+            if (response.ok) {
+              transfers.innerHTML = await response.text();
+            }
+          } catch (error) {
+            console.debug("Transfer status refresh failed", error);
+          }
+        }, 15000);
+      </script>
+    {% endif %}
   </body>
 </html>
