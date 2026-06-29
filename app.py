@@ -50,12 +50,10 @@ def transfer_client():
 
 
 def requested_transfer_scope(destination_collection_id=None):
-    collection_ids = [required_env("SOURCE_COLLECTION_ID")]
-    if destination_collection_id not in (None, collection_ids[0]):
-        collection_ids.append(destination_collection_id)
+    if destination_collection_id is None:
+        return TransferScopes.all
     data_access_scopes = [
-        GCSCollectionScopes(collection_id).data_access
-        for collection_id in collection_ids
+        GCSCollectionScopes(destination_collection_id).data_access
     ]
     return TransferScopes.all.with_dependencies(data_access_scopes)
 
