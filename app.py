@@ -247,6 +247,7 @@ def submit_transfer():
         destination_endpoint=destination_collection_id,
         label=label,
     )
+    task_data["store_base_path_info"] = True
     task_data.add_item(source_path, destination_path)
 
     client.submit_transfer(task_data)

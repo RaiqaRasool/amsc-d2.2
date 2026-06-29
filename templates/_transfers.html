@@ -14,8 +14,9 @@
             <th>Label</th>
             <th>Status</th>
             <th>Task ID</th>
-            <th>Destination collection</th>
+            <th>Destination</th>
             <th>Requested</th>
+            <th> - </th>
           </tr>
         </thead>
         <tbody>
@@ -28,8 +29,20 @@
                 </span>
               </td>
               <td><code>{{ transfer.get("task_id", "") }}</code></td>
-              <td><code>{{ transfer.get("destination_endpoint_id", "") }}</code></td>
+              <td title="Collection ID: {{ transfer.get('destination_endpoint_id', '') }}">
+                <strong>{{ transfer.get("destination_endpoint_display_name") or "Unknown collection" }}</strong>
+                <div>
+                  <code>{{ transfer.get("destination_base_path") or "Path not stored" }}</code>
+                </div>
+              </td>
               <td>{{ transfer.get("request_time", "") }}</td>
+              <td>
+                <a
+                  href="https://app.globus.org/activity/{{ transfer.get('task_id', '') }}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >View in Globus</a>
+              </td>
             </tr>
           {% endfor %}
         </tbody>
