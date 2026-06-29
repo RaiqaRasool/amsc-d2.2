@@ -5,6 +5,7 @@ import secrets
 import globus_sdk
 from dotenv import load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
+from globus_sdk.exc import GlobusAPIError
 from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
 
 load_dotenv()
@@ -41,6 +42,17 @@ def transfer_client():
         return None
     authorizer = globus_sdk.AccessTokenAuthorizer(access_token)
     return globus_sdk.TransferClient(authorizer=authorizer)
+
+
+def requested_transfer_scope(destination_collection_id=None):
+    collection_ids = [required_env("SOURCE_COLLECTION_ID")]
+    if destination_collection_id not in (None, collection_ids[0]):
+        collection_ids.append(destination_collection_id)
+    data_access_scopes = [
+        GCSCollectionScopes(collection_id).data_access
+        for collection_id in collection_ids
+    ]
+    return TransferScopes.all.with_dependencies(data_access_scopes)
 
 
 def child_path(parent_path, name):
@@ -132,10 +144,11 @@ def login():
     PENDING_OAUTH_STATES.add(state)
 
     client = auth_client()
-    source_data_access = GCSCollectionScopes(required_env("SOURCE_COLLECTION_ID")).data_access
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
-        requested_scopes=TransferScopes.all.with_dependencies([source_data_access]),
+        requested_scopes=requested_transfer_scope(
+            session.get("consent_collection_id")
+        ),
         state=state,
     )
     return redirect(client.oauth2_get_authorize_url())
@@ -157,10 +170,11 @@ def callback():
         return "Missing OAuth code.", 400
 
     client = auth_client()
-    source_data_access = GCSCollectionScopes(required_env("SOURCE_COLLECTION_ID")).data_access
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
-        requested_scopes=TransferScopes.all.with_dependencies([source_data_access]),
+        requested_scopes=requested_transfer_scope(
+            session.get("consent_collection_id")
+        ),
         state=returned_state,
     )
     token_response = client.oauth2_exchange_code_for_tokens(code)
@@ -169,7 +183,8 @@ def callback():
     session["logged_in"] = True
     session["transfer_access_token"] = transfer_tokens["access_token"]
 
-    return redirect(url_for("index"))
+    session.pop("consent_collection_id", None)
+    return redirect(session.pop("post_auth_redirect", url_for("index")))
 
 
 @app.get("/collections/search")
@@ -196,7 +211,18 @@ def browse_collection(collection_id):
     if not path.startswith("/"):
         path = "/" + path
 
-    entries = list(client.operation_ls(collection_id, path=path))
+    try:
+        entries = list(client.operation_ls(collection_id, path=path))
+    except GlobusAPIError as error:
+        if not error.info.consent_required:
+            raise
+        session["consent_collection_id"] = collection_id
+        session["post_auth_redirect"] = url_for(
+            "browse_collection",
+            collection_id=collection_id,
+            path=path,
+        )
+        return redirect(url_for("login"))
     parent_path = posixpath.dirname(path.rstrip("/")) or "/"
 
     return render_template(
