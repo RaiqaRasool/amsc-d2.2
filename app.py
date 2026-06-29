@@ -49,11 +49,12 @@ def transfer_client():
     return globus_sdk.TransferClient(authorizer=authorizer)
 
 
-def requested_transfer_scope(destination_collection_id=None):
-    if destination_collection_id is None:
+def requested_transfer_scope(destination_collection_ids=None):
+    if not destination_collection_ids:
         return TransferScopes.all
     data_access_scopes = [
-        GCSCollectionScopes(destination_collection_id).data_access
+        GCSCollectionScopes(collection_id).data_access
+        for collection_id in destination_collection_ids
     ]
     return TransferScopes.all.with_dependencies(data_access_scopes)
 
@@ -166,7 +167,7 @@ def login():
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
         requested_scopes=requested_transfer_scope(
-            session.get("consent_collection_id")
+            session.get("consent_collection_ids")
         ),
         state=state,
     )
@@ -192,7 +193,7 @@ def callback():
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
         requested_scopes=requested_transfer_scope(
-            session.get("consent_collection_id")
+            session.get("consent_collection_ids")
         ),
         state=returned_state,
     )
@@ -202,7 +203,7 @@ def callback():
     session["logged_in"] = True
     session["transfer_access_token"] = transfer_tokens["access_token"]
 
-    session.pop("consent_collection_id", None)
+    session.pop("consent_collection_ids", None)
     return redirect(session.pop("post_auth_redirect", url_for("index")))
 
 
@@ -271,7 +272,9 @@ def browse_collection(collection_id):
         entries = list(client.operation_ls(collection_id, path=path))
     except GlobusAPIError as error:
         if error.info.consent_required:
-            session["consent_collection_id"] = collection_id
+            collection_ids = session.get("consent_collection_ids", [])
+            if collection_id not in collection_ids:
+                session["consent_collection_ids"] = collection_ids + [collection_id]
             session["post_auth_redirect"] = url_for(
                 "browse_collection",
                 collection_id=collection_id,
