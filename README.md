@@ -15,21 +15,19 @@ Build one small step at a time:
 
 ## Local Configuration
 
-For the fixed-source transfer test and upcoming MYA export, set these local-only
-values in `.env`:
+For MYA export and transfer, set these local-only values in `.env`:
 
 ```text
 SOURCE_COLLECTION_ID=<source-collection-id>
-SOURCE_PATH=/path/as-seen-by-globus/mya-export.csv
+SOURCE_DIRECTORY=/directory/as-seen-by-globus
 MYA_EXPORT_HOST_DIR=/host/folder/exposed-by-globus-connect-personal
-MYA_OUTPUT_PATH=/mya-output/mya-export.csv
 ```
 
 Compose mounts `MYA_EXPORT_HOST_DIR` at `/mya-output` inside the web container.
-`MYA_OUTPUT_PATH` is where the app will write the export inside the container;
-`SOURCE_PATH` identifies that same file from the source collection's view.
-These paths may differ because the container and Globus Connect Personal see
-the shared host folder through different filesystem paths.
+Each MYA query writes a unique file there using a generated UUID.
+`SOURCE_DIRECTORY` identifies that host folder from the source collection's
+view. These paths may differ because the container and Globus Connect Personal
+see the shared host folder through different filesystem paths.
 
 If `MYA_EXPORT_HOST_DIR` is omitted, Compose uses `./mya-output`. The selected
 destination folder comes from the web UI. The app submits the source file into

@@ -23,6 +23,42 @@
           </section>
 
           <section class="panel">
+            <h2>MYA query</h2>
+            <form action="{{ url_for('query_mya') }}" method="post" class="form-row">
+              <label>
+                Start
+                <input type="datetime-local" name="start" required>
+              </label>
+              <label>
+                Interval (milliseconds)
+                <input type="number" name="interval" min="1" value="60000" required>
+              </label>
+              <label>
+                Samples
+                <input type="number" name="num_samples" min="1" value="10" required>
+              </label>
+              <label>
+                PVs (comma-separated)
+                <input name="pvlist" required>
+              </label>
+              <button type="submit">Run MYA query</button>
+            </form>
+
+            {% for message in get_flashed_messages() %}
+              <p><span class="status">{{ message }}</span></p>
+            {% endfor %}
+
+            {% if source_path %}
+              <dl class="meta">
+                <div class="meta-row">
+                  <dt>Latest export</dt>
+                  <dd><code>{{ source_path }}</code></dd>
+                </div>
+              </dl>
+            {% endif %}
+          </section>
+
+          <section class="panel">
             <h2>Destination</h2>
             {% if destination_collection_id and destination_path %}
               <dl class="meta">
@@ -48,7 +84,7 @@
             </form>
           </section>
 
-          {% if destination_collection_id and destination_path %}
+          {% if source_path and destination_collection_id and destination_path %}
             <section class="panel">
               <h2>Submit transfer</h2>
               <form action="{{ url_for('submit_transfer') }}" method="post" class="form-row">

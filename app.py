@@ -1,17 +1,22 @@
 import os
 import posixpath
 import secrets
+import uuid
+from datetime import datetime
 
 import globus_sdk
 from dotenv import load_dotenv
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from globus_sdk.exc import GlobusAPIError
 from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
+
+from mya_query import run_mysampler
 
 load_dotenv()
 
 TRANSFER_RESOURCE_SERVER = "transfer.api.globus.org"
 TRANSFER_LABEL_PREFIX = "AmSC MYA Delivery - "
+MYA_OUTPUT_DIR = "/mya-output"
 
 # ponytail: in-memory state store for local dev; use server-side session storage
 # if this runs with multiple processes or restarts between login and callback.
@@ -149,6 +154,7 @@ def index():
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
+        source_path=session.get("source_path"),
         transfers=app_transfers(client) if client is not None else [],
     )
 
@@ -216,6 +222,40 @@ def search_collections():
         client.endpoint_search(filter_fulltext=query, filter_non_functional=False)
     )[:10]
     return render_template("collection_search.html", query=query, results=results)
+
+
+@app.post("/mya/query")
+def query_mya():
+    if transfer_client() is None:
+        return redirect(url_for("login"))
+
+    try:
+        start = datetime.fromisoformat(request.form.get("start", ""))
+        interval = int(request.form.get("interval", ""))
+        num_samples = int(request.form.get("num_samples", ""))
+        pvlist = [
+            pv.strip()
+            for pv in request.form.get("pvlist", "").split(",")
+            if pv.strip()
+        ]
+        if interval <= 0 or num_samples <= 0 or not pvlist:
+            raise ValueError
+    except ValueError:
+        return "Invalid MYA query parameters.", 400
+
+    data = run_mysampler(start, interval, num_samples, pvlist)
+    filename = f"mya-{uuid.uuid4()}.csv"
+    output_path = os.path.join(MYA_OUTPUT_DIR, filename)
+    source_path = posixpath.join(
+        required_env("SOURCE_DIRECTORY").rstrip("/") or "/",
+        filename,
+    )
+    os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
+    data.to_csv(output_path)
+    session["source_path"] = source_path
+
+    flash(f"MYA export created with {len(data)} rows: {filename}")
+    return redirect(url_for("index"))
 
 
 @app.get("/collections/<collection_id>/browse")
@@ -290,9 +330,11 @@ def submit_transfer():
         return redirect(url_for("login"))
 
     source_collection_id = required_env("SOURCE_COLLECTION_ID")
-    source_path = required_env("SOURCE_PATH")
+    source_path = session.get("source_path")
     destination_collection_id = session.get("destination_collection_id")
     destination_folder = session.get("destination_path")
+    if not source_path:
+        return "Run a MYA query before submitting a transfer.", 400
     if not destination_collection_id or not destination_folder:
         return "Choose a destination folder before submitting a transfer.", 400
 
