@@ -133,6 +133,25 @@ a {
   color: #415064;
 }
 
+.notice {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.notice-success {
+  border-color: #9bcda8;
+  background: #eaf7ee;
+  color: #276738;
+}
+
+.notice-error {
+  border-color: #e1aaa5;
+  background: #fdeceb;
+  color: #84271f;
+}
+
 .meta {
   display: grid;
   gap: 8px;

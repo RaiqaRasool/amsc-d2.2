@@ -22,6 +22,10 @@
             <span class="status">Logged in with Globus</span>
           </section>
 
+          {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="notice notice-{{ category }}" role="alert">{{ message }}</div>
+          {% endfor %}
+
           <section class="panel">
             <h2>MYA query</h2>
             <form action="{{ url_for('query_mya') }}" method="post" class="form-row">
@@ -43,10 +47,6 @@
               </label>
               <button type="submit">Run MYA query</button>
             </form>
-
-            {% for message in get_flashed_messages() %}
-              <p><span class="status">{{ message }}</span></p>
-            {% endfor %}
 
             {% if source_path %}
               <dl class="meta">

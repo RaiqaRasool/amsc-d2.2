@@ -92,6 +92,21 @@ def transfer_label(user_label):
     return f"{TRANSFER_LABEL_PREFIX}{user_label}"
 
 
+def transfer_error_message(error):
+    if error.code == "NotLicensedException":
+        return (
+            "Globus could not submit this transfer because transfers between two "
+            "unsubscribed Globus Connect Personal collections require membership "
+            "in a Globus subscription group. Choose a Globus Connect Server "
+            "collection or use a subscribed account."
+        )
+
+    message = error.message or "Globus could not submit the transfer."
+    if error.request_id:
+        return f"{message} Globus request ID: {error.request_id}"
+    return message
+
+
 def task_source_collection_id(task):
     return task.get("source_endpoint_id", task.get("source_endpoint"))
 
@@ -253,7 +268,7 @@ def query_mya():
     data.to_csv(output_path)
     session["source_path"] = source_path
 
-    flash(f"MYA export created with {len(data)} rows: {filename}")
+    flash(f"MYA export created with {len(data)} rows: {filename}", "success")
     return redirect(url_for("index"))
 
 
@@ -350,7 +365,11 @@ def submit_transfer():
     task_data["store_base_path_info"] = True
     task_data.add_item(source_path, destination_path)
 
-    client.submit_transfer(task_data)
+    try:
+        client.submit_transfer(task_data)
+    except GlobusAPIError as error:
+        flash(transfer_error_message(error), "error")
+        return redirect(url_for("index"))
 
     return redirect(url_for("index"))
 
