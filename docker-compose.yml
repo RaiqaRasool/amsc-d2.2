@@ -1,6 +1,7 @@
 services:
   web:
     build: .
+    user: "${UID}:${GID}"
     env_file:
       - .env
     environment:
@@ -11,5 +12,5 @@ services:
       - "5000:5000"
     volumes:
       - .:/app
-      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
     command: sh -c "pip install --no-cache-dir -r requirements.txt && python app.py"
