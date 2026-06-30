@@ -257,7 +257,12 @@ def query_mya():
     except ValueError:
         return "Invalid MYA query parameters.", 400
 
-    data = run_mysampler(start, interval, num_samples, pvlist)
+    try:
+        data = run_mysampler(start, interval, num_samples, pvlist)
+    except Exception as error:
+        flash(f"MYA query failed: {error}", "error")
+        return redirect(url_for("index"))
+
     filename = f"mya-{uuid.uuid4()}.csv"
     output_path = os.path.join(MYA_OUTPUT_DIR, filename)
     source_path = posixpath.join(
