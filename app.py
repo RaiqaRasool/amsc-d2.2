@@ -156,6 +156,19 @@ def get_job(job_id):
     return job_row(row)
 
 
+def list_jobs(limit=20):
+    with jobs_db() as connection:
+        rows = connection.execute(
+            """
+            SELECT * FROM mya_transfer_jobs
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [job_row(row) for row in rows]
+
+
 def update_job(job_id, **fields):
     if not fields:
         return get_job(job_id)
@@ -574,6 +587,13 @@ def job_status(job_id):
     if job is None:
         return {"error": "Job not found."}, 404
     return jsonify(job)
+
+
+@app.get("/jobs")
+def jobs():
+    if transfer_client() is None:
+        return "", 401
+    return jsonify(list_jobs())
 
 
 @app.get("/transfers")
