@@ -8,7 +8,7 @@ from datetime import datetime
 
 import globus_sdk
 from dotenv import load_dotenv
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from globus_sdk.exc import GlobusAPIError
 from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
 
@@ -544,6 +544,17 @@ def refresh_transfers():
     if transfer_client() is None:
         return redirect(url_for("login"))
     return redirect(url_for("index"))
+
+
+@app.get("/jobs/<job_id>")
+def job_status(job_id):
+    if transfer_client() is None:
+        return "", 401
+
+    job = get_job(job_id)
+    if job is None:
+        return {"error": "Job not found."}, 404
+    return jsonify(job)
 
 
 @app.get("/transfers")
