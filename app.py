@@ -510,6 +510,7 @@ def submit_transfer():
     if client is None:
         return redirect(url_for("login"))
 
+    job_id = session.get("latest_job_id")
     source_collection_id = required_env("SOURCE_COLLECTION_ID")
     source_path = session.get("source_path")
     destination_collection_id = session.get("destination_collection_id")
@@ -531,10 +532,28 @@ def submit_transfer():
     task_data.add_item(source_path, destination_path)
 
     try:
-        client.submit_transfer(task_data)
+        response = client.submit_transfer(task_data)
     except GlobusAPIError as error:
+        if job_id:
+            update_job(
+                job_id,
+                destination_collection_id=destination_collection_id,
+                destination_path=destination_path,
+                status="transfer_failed",
+                error_message=transfer_error_message(error),
+            )
         flash(transfer_error_message(error), "error")
         return redirect(url_for("index"))
+
+    if job_id:
+        update_job(
+            job_id,
+            destination_collection_id=destination_collection_id,
+            destination_path=destination_path,
+            globus_task_id=response["task_id"],
+            status="transfer_submitted",
+            error_message=None,
+        )
 
     return redirect(url_for("index"))
 
