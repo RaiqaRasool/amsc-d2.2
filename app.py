@@ -1,6 +1,8 @@
+import json
 import os
 import posixpath
 import secrets
+import sqlite3
 import uuid
 from datetime import datetime
 
@@ -32,6 +34,145 @@ def required_env(name):
 
 app = Flask(__name__)
 app.secret_key = required_env("FLASK_SECRET_KEY")
+os.makedirs(app.instance_path, exist_ok=True)
+JOBS_DB_PATH = os.environ.get(
+    "JOBS_DB_PATH",
+    os.path.join(app.instance_path, "mya-transfer-jobs.sqlite3"),
+)
+
+
+def jobs_db():
+    connection = sqlite3.connect(JOBS_DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_jobs_db():
+    with jobs_db() as connection:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mya_transfer_jobs (
+                job_id TEXT PRIMARY KEY,
+                user_identity TEXT,
+                globus_identity TEXT,
+                query_type TEXT NOT NULL,
+                query_params TEXT NOT NULL,
+                source_collection_id TEXT,
+                source_path TEXT,
+                destination_collection_id TEXT,
+                destination_path TEXT,
+                required_scopes TEXT,
+                token_reference TEXT,
+                access_token_expires_at TEXT,
+                globus_task_id TEXT,
+                status TEXT NOT NULL,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+
+def job_row(row):
+    if row is None:
+        return None
+    job = dict(row)
+    job["query_params"] = json.loads(job["query_params"])
+    return job
+
+
+def create_job(
+    *,
+    job_id,
+    status,
+    query_type,
+    query_params,
+    user_identity=None,
+    globus_identity=None,
+    source_collection_id=None,
+    source_path=None,
+    destination_collection_id=None,
+    destination_path=None,
+    required_scopes=None,
+    token_reference=None,
+    access_token_expires_at=None,
+    globus_task_id=None,
+    error_message=None,
+):
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    with jobs_db() as connection:
+        connection.execute(
+            """
+            INSERT INTO mya_transfer_jobs (
+                job_id,
+                user_identity,
+                globus_identity,
+                query_type,
+                query_params,
+                source_collection_id,
+                source_path,
+                destination_collection_id,
+                destination_path,
+                required_scopes,
+                token_reference,
+                access_token_expires_at,
+                globus_task_id,
+                status,
+                error_message,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                job_id,
+                user_identity,
+                globus_identity,
+                query_type,
+                json.dumps(query_params, sort_keys=True),
+                source_collection_id,
+                source_path,
+                destination_collection_id,
+                destination_path,
+                required_scopes,
+                token_reference,
+                access_token_expires_at,
+                globus_task_id,
+                status,
+                error_message,
+                now,
+                now,
+            ),
+        )
+    return get_job(job_id)
+
+
+def get_job(job_id):
+    with jobs_db() as connection:
+        row = connection.execute(
+            "SELECT * FROM mya_transfer_jobs WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+    return job_row(row)
+
+
+def update_job(job_id, **fields):
+    if not fields:
+        return get_job(job_id)
+
+    fields["updated_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    assignments = ", ".join(f"{name} = ?" for name in fields)
+    values = list(fields.values()) + [job_id]
+
+    with jobs_db() as connection:
+        connection.execute(
+            f"UPDATE mya_transfer_jobs SET {assignments} WHERE job_id = ?",
+            values,
+        )
+    return get_job(job_id)
+
+
+init_jobs_db()
 
 
 def auth_client():
