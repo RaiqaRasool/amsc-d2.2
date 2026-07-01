@@ -52,8 +52,27 @@
               <dl class="meta">
                 <div class="meta-row">
                   <dt>Latest export</dt>
-                  <dd><code>{{ source_path }}</code></dd>
+                  <dd>
+                    {% if latest_export_url %}
+                      <a href="{{ latest_export_url }}" target="_blank" rel="noopener noreferrer">
+                        <code>{{ latest_export_name or source_path }}</code>
+                      </a>
+                    {% else %}
+                      <code>{{ latest_export_name or source_path }}</code>
+                    {% endif %}
+                  </dd>
                 </div>
+                {% if latest_job %}
+                  <div class="meta-row">
+                    <dt>Latest job</dt>
+                    <dd>
+                      <a href="{{ url_for('job_status', job_id=latest_job.job_id) }}" target="_blank" rel="noopener noreferrer">
+                        <code>{{ latest_job.job_id }}</code>
+                      </a>
+                      ({{ latest_job.status }})
+                    </dd>
+                  </div>
+                {% endif %}
               </dl>
             {% endif %}
           </section>

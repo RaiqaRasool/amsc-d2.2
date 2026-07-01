@@ -5,6 +5,7 @@ import secrets
 import sqlite3
 import uuid
 from datetime import datetime
+from urllib.parse import quote
 
 import globus_sdk
 from dotenv import load_dotenv
@@ -313,9 +314,21 @@ def app_transfers(client):
     ]
 
 
+def globus_file_manager_url(collection_id, path):
+    if not collection_id or not path:
+        return None
+    return (
+        "https://app.globus.org/file-manager"
+        f"?origin_id={quote(collection_id)}"
+        f"&origin_path={quote(path, safe='')}"
+    )
+
+
 @app.get("/")
 def index():
     client = transfer_client()
+    latest_job_id = session.get("latest_job_id")
+    latest_job = get_job(latest_job_id) if latest_job_id else None
     return render_template(
         "index.html",
         logged_in=session.get("logged_in"),
@@ -323,6 +336,20 @@ def index():
         destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
         source_path=session.get("source_path"),
+        latest_job=latest_job,
+        latest_export_name=(
+            posixpath.basename(latest_job.get("source_path", ""))
+            if latest_job
+            else None
+        ),
+        latest_export_url=(
+            globus_file_manager_url(
+                latest_job.get("source_collection_id"),
+                posixpath.dirname(latest_job.get("source_path", "")) or "/",
+            )
+            if latest_job
+            else None
+        ),
         transfers=app_transfers(client) if client is not None else [],
     )
 
