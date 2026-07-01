@@ -122,7 +122,7 @@ def create_job(
                 error_message,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -404,6 +404,7 @@ def query_mya():
         flash(f"MYA query failed: {error}", "error")
         return redirect(url_for("index"))
 
+    job_id = str(uuid.uuid4())
     filename = f"mya-{uuid.uuid4()}.csv"
     output_path = os.path.join(MYA_OUTPUT_DIR, filename)
     source_path = posixpath.join(
@@ -413,8 +414,26 @@ def query_mya():
     os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
     data.to_csv(output_path)
     session["source_path"] = source_path
+    session["latest_job_id"] = job_id
 
-    flash(f"MYA export created with {len(data)} rows: {filename}", "success")
+    create_job(
+        job_id=job_id,
+        status="query_complete",
+        query_type="mysampler",
+        query_params={
+            "start": start.isoformat(),
+            "interval": interval,
+            "num_samples": num_samples,
+            "pvlist": pvlist,
+        },
+        source_collection_id=required_env("SOURCE_COLLECTION_ID"),
+        source_path=source_path,
+    )
+
+    flash(
+        f"MYA export created with {len(data)} rows: {filename} (job {job_id})",
+        "success",
+    )
     return redirect(url_for("index"))
 
 
