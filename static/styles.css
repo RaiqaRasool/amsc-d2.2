@@ -9,6 +9,7 @@
   --brand-dark: #064775;
   --success-bg: #eaf7ee;
   --success-text: #276738;
+  --error-text: #FF0000;
 }
 
 * {
@@ -76,6 +77,11 @@ a {
 .panel h1 {
   margin: 0 0 14px;
   font-size: 18px;
+}
+
+.subpanel h3 {
+  margin: 0;
+  font-size: 16px;
 }
 
 .section-header {
@@ -183,6 +189,30 @@ form {
   margin: 0;
 }
 
+.request-stack {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.subpanel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.subpanel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.subpanel-section-header {
+  margin-top: 24px;
+}
+
 .form-row {
   display: flex;
   align-items: end;
@@ -190,11 +220,45 @@ form {
   flex-wrap: wrap;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
 label {
   display: grid;
   gap: 5px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.inline-form {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.destination-actions {
+  display: flex;
+  align-items: start;
+  flex-direction: column;
+  justify-content: start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.destination-actions .block {
+  display: flex;
+  align-items: end;
+  justify-content: start;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 input {
@@ -226,6 +290,14 @@ button:hover,
   background: var(--brand-dark);
 }
 
+button:disabled,
+button:disabled:hover {
+  border-color: #c9d2dd;
+  background: #e7ecf2;
+  color: #6b7787;
+  cursor: not-allowed;
+}
+
 .button-secondary {
   border-color: var(--border);
   background: #ffffff;
@@ -240,6 +312,16 @@ button:hover,
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.helper {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.helper-error {
+  color: #b42318;
 }
 
 .result-list {
@@ -316,6 +398,14 @@ th {
   }
 
   .form-row {
+    align-items: stretch;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-form {
     align-items: stretch;
   }
 }

@@ -324,6 +324,50 @@ def globus_file_manager_url(collection_id, path):
     )
 
 
+def submit_transfer_for_job(
+    client,
+    *,
+    job_id,
+    source_collection_id,
+    source_path,
+    destination_collection_id,
+    destination_folder,
+    transfer_label_value,
+):
+    destination_path = destination_file_path(destination_folder, source_path)
+    task_data = globus_sdk.TransferData(
+        source_endpoint=source_collection_id,
+        destination_endpoint=destination_collection_id,
+        label=transfer_label(transfer_label_value),
+    )
+    task_data["store_base_path_info"] = True
+    task_data.add_item(source_path, destination_path)
+
+    try:
+        response = client.submit_transfer(task_data)
+    except GlobusAPIError as error:
+        if job_id:
+            update_job(
+                job_id,
+                destination_collection_id=destination_collection_id,
+                destination_path=destination_path,
+                status="transfer_failed",
+                error_message=transfer_error_message(error),
+            )
+        return None, transfer_error_message(error)
+
+    if job_id:
+        update_job(
+            job_id,
+            destination_collection_id=destination_collection_id,
+            destination_path=destination_path,
+            globus_task_id=response["task_id"],
+            status="transfer_submitted",
+            error_message=None,
+        )
+    return response, None
+
+
 def job_for_display(job):
     if job is None:
         return None
@@ -430,7 +474,8 @@ def search_collections():
 
 @app.post("/mya/query")
 def query_mya():
-    if transfer_client() is None:
+    client = transfer_client()
+    if client is None:
         return redirect(url_for("login"))
 
     try:
@@ -478,6 +523,31 @@ def query_mya():
         source_collection_id=required_env("SOURCE_COLLECTION_ID"),
         source_path=source_path,
     )
+
+    if request.form.get("submit_action") == "query_and_transfer":
+        destination_collection_id = session.get("destination_collection_id")
+        destination_folder = session.get("destination_path")
+        if not destination_collection_id or not destination_folder:
+            flash("Choose a destination folder before running query and transfer.", "error")
+            return redirect(url_for("index"))
+
+        _, transfer_error = submit_transfer_for_job(
+            client,
+            job_id=job_id,
+            source_collection_id=required_env("SOURCE_COLLECTION_ID"),
+            source_path=source_path,
+            destination_collection_id=destination_collection_id,
+            destination_folder=destination_folder,
+            transfer_label_value=request.form.get("transfer_label", ""),
+        )
+        if transfer_error:
+            flash(transfer_error, "error")
+        else:
+            flash(
+                f"MYA export created and transfer submitted: {filename} (job {job_id})",
+                "success",
+            )
+        return redirect(url_for("index"))
 
     flash(
         f"MYA export created with {len(data)} rows: {filename} (job {job_id})",
@@ -553,6 +623,14 @@ def select_destination():
     return redirect(url_for("index"))
 
 
+@app.post("/destination/reset")
+def reset_destination():
+    session.pop("destination_collection_id", None)
+    session.pop("destination_collection_name", None)
+    session.pop("destination_path", None)
+    return redirect(url_for("index"))
+
+
 @app.post("/transfer/submit")
 def submit_transfer():
     client = transfer_client()
@@ -569,40 +647,18 @@ def submit_transfer():
     if not destination_collection_id or not destination_folder:
         return "Choose a destination folder before submitting a transfer.", 400
 
-    label = transfer_label(request.form.get("transfer_label", ""))
-
-    destination_path = destination_file_path(destination_folder, source_path)
-    task_data = globus_sdk.TransferData(
-        source_endpoint=source_collection_id,
-        destination_endpoint=destination_collection_id,
-        label=label,
+    _, transfer_error = submit_transfer_for_job(
+        client,
+        job_id=job_id,
+        source_collection_id=source_collection_id,
+        source_path=source_path,
+        destination_collection_id=destination_collection_id,
+        destination_folder=destination_folder,
+        transfer_label_value=request.form.get("transfer_label", ""),
     )
-    task_data["store_base_path_info"] = True
-    task_data.add_item(source_path, destination_path)
-
-    try:
-        response = client.submit_transfer(task_data)
-    except GlobusAPIError as error:
-        if job_id:
-            update_job(
-                job_id,
-                destination_collection_id=destination_collection_id,
-                destination_path=destination_path,
-                status="transfer_failed",
-                error_message=transfer_error_message(error),
-            )
-        flash(transfer_error_message(error), "error")
+    if transfer_error:
+        flash(transfer_error, "error")
         return redirect(url_for("index"))
-
-    if job_id:
-        update_job(
-            job_id,
-            destination_collection_id=destination_collection_id,
-            destination_path=destination_path,
-            globus_task_id=response["task_id"],
-            status="transfer_submitted",
-            error_message=None,
-        )
 
     return redirect(url_for("index"))
 
