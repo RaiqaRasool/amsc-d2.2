@@ -116,6 +116,66 @@
             </section>
           {% endif %}
 
+          {% if jobs %}
+            <section class="panel">
+              <h2>Jobs</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Job ID</th>
+                      <th>Status</th>
+                      <th>Export</th>
+                      <th>Destination</th>
+                      <th>Task ID</th>
+                      <th>Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for job in jobs %}
+                      <tr>
+                        <td>
+                          <a href="{{ url_for('job_status', job_id=job.job_id) }}" target="_blank" rel="noopener noreferrer">
+                            <code>{{ job.job_id }}</code>
+                          </a>
+                        </td>
+                        <td><code>{{ job.status }}</code></td>
+                        <td>
+                          {% if job.export_name %}
+                            {% if job.export_url %}
+                              <a href="{{ job.export_url }}" target="_blank" rel="noopener noreferrer">
+                                <code>{{ job.export_name }}</code>
+                              </a>
+                            {% else %}
+                              <code>{{ job.export_name }}</code>
+                            {% endif %}
+                          {% else %}
+                            <span>-</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if job.destination_path %}
+                            <code>{{ job.destination_path }}</code>
+                          {% else %}
+                            <span>-</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if job.globus_task_id %}
+                            <code>{{ job.globus_task_id }}</code>
+                          {% else %}
+                            <span>-</span>
+                          {% endif %}
+                        </td>
+                        <td>{{ job.updated_at }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          {% endif %}
+
           <div id="transfers" data-refresh-url="{{ url_for('transfers') }}">
             {% include "_transfers.html" %}
           </div>

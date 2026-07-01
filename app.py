@@ -324,32 +324,41 @@ def globus_file_manager_url(collection_id, path):
     )
 
 
+def job_for_display(job):
+    if job is None:
+        return None
+    display_job = dict(job)
+    source_path = display_job.get("source_path")
+    display_job["export_name"] = (
+        posixpath.basename(source_path) if source_path else None
+    )
+    display_job["export_url"] = (
+        globus_file_manager_url(
+            display_job.get("source_collection_id"),
+            posixpath.dirname(source_path) or "/",
+        )
+        if source_path
+        else None
+    )
+    return display_job
+
+
 @app.get("/")
 def index():
     client = transfer_client()
     latest_job_id = session.get("latest_job_id")
-    latest_job = get_job(latest_job_id) if latest_job_id else None
+    latest_job = job_for_display(get_job(latest_job_id)) if latest_job_id else None
     return render_template(
         "index.html",
         logged_in=session.get("logged_in"),
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
+        jobs=[job_for_display(job) for job in list_jobs()],
         source_path=session.get("source_path"),
         latest_job=latest_job,
-        latest_export_name=(
-            posixpath.basename(latest_job.get("source_path", ""))
-            if latest_job
-            else None
-        ),
-        latest_export_url=(
-            globus_file_manager_url(
-                latest_job.get("source_collection_id"),
-                posixpath.dirname(latest_job.get("source_path", "")) or "/",
-            )
-            if latest_job
-            else None
-        ),
+        latest_export_name=latest_job.get("export_name") if latest_job else None,
+        latest_export_url=latest_job.get("export_url") if latest_job else None,
         transfers=app_transfers(client) if client is not None else [],
     )
 
