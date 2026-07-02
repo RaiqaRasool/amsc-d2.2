@@ -61,7 +61,9 @@ def init_jobs_db():
                 source_collection_id TEXT,
                 source_path TEXT,
                 destination_collection_id TEXT,
+                destination_collection_name TEXT,
                 destination_path TEXT,
+                transfer_label TEXT,
                 required_scopes TEXT,
                 token_reference TEXT,
                 access_token_expires_at TEXT,
@@ -73,6 +75,19 @@ def init_jobs_db():
             )
             """
         )
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(mya_transfer_jobs)")
+        }
+        if "destination_collection_name" not in columns:
+            connection.execute(
+                "ALTER TABLE mya_transfer_jobs "
+                "ADD COLUMN destination_collection_name TEXT"
+            )
+        if "transfer_label" not in columns:
+            connection.execute(
+                "ALTER TABLE mya_transfer_jobs ADD COLUMN transfer_label TEXT"
+            )
 
 
 def job_row(row):
@@ -176,7 +191,11 @@ def list_refreshable_transfer_jobs():
             """
             SELECT * FROM mya_transfer_jobs
             WHERE globus_task_id IS NOT NULL
-              AND status NOT IN ('transfer_succeeded', 'transfer_failed')
+              AND (
+                status NOT IN ('transfer_succeeded', 'transfer_failed')
+                OR destination_collection_name IS NULL
+                OR transfer_label IS NULL
+              )
             ORDER BY created_at DESC
             """
         ).fetchall()
@@ -341,6 +360,12 @@ def globus_file_manager_url(collection_id, path):
     )
 
 
+def globus_task_url(task_id):
+    if not task_id:
+        return None
+    return f"https://app.globus.org/activity/{quote(task_id, safe='')}"
+
+
 def submit_transfer_for_job(
     client,
     *,
@@ -348,14 +373,16 @@ def submit_transfer_for_job(
     source_collection_id,
     source_path,
     destination_collection_id,
+    destination_collection_name,
     destination_folder,
     transfer_label_value,
 ):
     destination_path = destination_file_path(destination_folder, source_path)
+    resolved_transfer_label = transfer_label(transfer_label_value)
     task_data = globus_sdk.TransferData(
         source_endpoint=source_collection_id,
         destination_endpoint=destination_collection_id,
-        label=transfer_label(transfer_label_value),
+        label=resolved_transfer_label,
     )
     task_data["store_base_path_info"] = True
     task_data.add_item(source_path, destination_path)
@@ -367,7 +394,9 @@ def submit_transfer_for_job(
             update_job(
                 job_id,
                 destination_collection_id=destination_collection_id,
+                destination_collection_name=destination_collection_name,
                 destination_path=destination_path,
+                transfer_label=resolved_transfer_label,
                 status="transfer_failed",
                 error_message=transfer_error_message(error),
             )
@@ -377,7 +406,9 @@ def submit_transfer_for_job(
         update_job(
             job_id,
             destination_collection_id=destination_collection_id,
+            destination_collection_name=destination_collection_name,
             destination_path=destination_path,
+            transfer_label=resolved_transfer_label,
             globus_task_id=response["task_id"],
             status="transfer_submitted",
             error_message=None,
@@ -390,6 +421,7 @@ def job_for_display(job):
         return None
     display_job = dict(job)
     source_path = display_job.get("source_path")
+    destination_path = display_job.get("destination_path")
     display_job["export_name"] = (
         posixpath.basename(source_path) if source_path else None
     )
@@ -401,6 +433,15 @@ def job_for_display(job):
         if source_path
         else None
     )
+    display_job["destination_url"] = (
+        globus_file_manager_url(
+            display_job.get("destination_collection_id"),
+            posixpath.dirname(destination_path) or "/",
+        )
+        if destination_path
+        else None
+    )
+    display_job["task_url"] = globus_task_url(display_job.get("globus_task_id"))
     return display_job
 
 
@@ -554,6 +595,7 @@ def query_mya():
             source_collection_id=required_env("SOURCE_COLLECTION_ID"),
             source_path=source_path,
             destination_collection_id=destination_collection_id,
+            destination_collection_name=session.get("destination_collection_name"),
             destination_folder=destination_folder,
             transfer_label_value=request.form.get("transfer_label", ""),
         )
@@ -670,6 +712,7 @@ def submit_transfer():
         source_collection_id=source_collection_id,
         source_path=source_path,
         destination_collection_id=destination_collection_id,
+        destination_collection_name=session.get("destination_collection_name"),
         destination_folder=destination_folder,
         transfer_label_value=request.form.get("transfer_label", ""),
     )
@@ -695,7 +738,15 @@ def refresh_transfers():
             failed += 1
             continue
 
-        update_job(job["job_id"], status=job_transfer_status(task))
+        fields = {"status": job_transfer_status(task)}
+        destination_collection_name = task.get(
+            "destination_endpoint_display_name"
+        )
+        if destination_collection_name:
+            fields["destination_collection_name"] = destination_collection_name
+        if task.get("label"):
+            fields["transfer_label"] = task["label"]
+        update_job(job["job_id"], **fields)
         refreshed += 1
 
     if failed:

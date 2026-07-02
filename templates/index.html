@@ -134,6 +134,7 @@
                       <th>Status</th>
                       <th>Export</th>
                       <th>Destination</th>
+                      <th>Transfer Label</th>
                       <th>Task ID</th>
                       <th>Updated</th>
                     </tr>
@@ -146,7 +147,14 @@
                             <code>{{ job.job_id }}</code>
                           </a>
                         </td>
-                        <td><code>{{ job.status }}</code></td>
+                        <td>
+                          <code>{{ job.status }}</code>
+                          {% if job.task_url %}
+                            <div>
+                              <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer">Open in Globus</a>
+                            </div>
+                          {% endif %}
+                        </td>
                         <td>
                           {% if job.export_name %}
                             {% if job.export_url %}
@@ -162,7 +170,22 @@
                         </td>
                         <td>
                           {% if job.destination_path %}
-                            <code>{{ job.destination_path }}</code>
+                            {% if job.destination_url %}
+                              <a href="{{ job.destination_url }}" target="_blank" rel="noopener noreferrer">
+                                <strong>Collection:</strong> {{ job.destination_collection_name or "Unknown collection" }}<br>
+                                <strong>Path:</strong> <code>{{ job.destination_path }}</code>
+                              </a>
+                            {% else %}
+                              <strong>Collection:</strong> {{ job.destination_collection_name or "Unknown collection" }}<br>
+                              <strong>Path:</strong> <code>{{ job.destination_path }}</code>
+                            {% endif %}
+                          {% else %}
+                            <span>-</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if job.transfer_label %}
+                            {{ job.transfer_label }}
                           {% else %}
                             <span>-</span>
                           {% endif %}

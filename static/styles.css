@@ -36,7 +36,7 @@ a {
 }
 
 .topbar-inner {
-  max-width: 980px;
+  width: 90%;
   margin: 0 auto;
   padding: 16px 24px;
   display: flex;
@@ -56,7 +56,7 @@ a {
 }
 
 .container {
-  max-width: 980px;
+  width: 90%;
   margin: 0 auto;
   padding: 24px;
 }
@@ -383,6 +383,7 @@ th {
 @media (max-width: 640px) {
   .topbar-inner,
   .container {
+    width: 100%;
     padding-left: 16px;
     padding-right: 16px;
   }
