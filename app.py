@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from globus_sdk.exc import GlobusAPIError
 from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
+from globus_sdk.token_storage import SQLiteTokenStorage
 
 from mya_query import run_mysampler
 
@@ -39,6 +40,10 @@ os.makedirs(app.instance_path, exist_ok=True)
 JOBS_DB_PATH = os.environ.get(
     "JOBS_DB_PATH",
     os.path.join(app.instance_path, "mya-transfer-jobs.sqlite3"),
+)
+TOKEN_DB_PATH = os.environ.get(
+    "TOKEN_DB_PATH",
+    os.path.join(app.instance_path, "globus-tokens.sqlite3"),
 )
 
 
@@ -228,7 +233,21 @@ def auth_client():
     )
 
 
-def transfer_client():
+def transfer_client(token_reference=None):
+    token_reference = token_reference or session.get("token_reference")
+    if token_reference:
+        storage = SQLiteTokenStorage(TOKEN_DB_PATH, namespace=token_reference)
+        token_data = storage.get_token_data(TRANSFER_RESOURCE_SERVER)
+        if token_data and token_data.refresh_token:
+            authorizer = globus_sdk.RefreshTokenAuthorizer(
+                token_data.refresh_token,
+                auth_client(),
+                access_token=token_data.access_token,
+                expires_at=token_data.expires_at_seconds,
+                on_refresh=storage.store_token_response,
+            )
+            return globus_sdk.TransferClient(authorizer=authorizer)
+
     access_token = session.get("transfer_access_token")
     if not access_token:
         return None
@@ -445,6 +464,12 @@ def job_for_display(job):
     return display_job
 
 
+def job_for_api(job):
+    api_job = dict(job)
+    api_job.pop("token_reference", None)
+    return api_job
+
+
 @app.get("/")
 def index():
     client = transfer_client()
@@ -476,6 +501,7 @@ def login():
         requested_scopes=requested_transfer_scope(
             session.get("consent_collection_ids")
         ),
+        refresh_tokens=True,
         state=state,
     )
     return redirect(client.oauth2_get_authorize_url())
@@ -502,13 +528,22 @@ def callback():
         requested_scopes=requested_transfer_scope(
             session.get("consent_collection_ids")
         ),
+        refresh_tokens=True,
         state=returned_state,
     )
     token_response = client.oauth2_exchange_code_for_tokens(code)
     transfer_tokens = token_response.by_resource_server[TRANSFER_RESOURCE_SERVER]
+    token_reference = uuid.uuid4().hex
+    token_storage = SQLiteTokenStorage(TOKEN_DB_PATH, namespace=token_reference)
+    token_storage.store_token_response(token_response)
+    token_storage.close()
 
     session["logged_in"] = True
     session["transfer_access_token"] = transfer_tokens["access_token"]
+    session["transfer_access_token_expires_at"] = transfer_tokens[
+        "expires_at_seconds"
+    ]
+    session["token_reference"] = token_reference
 
     session.pop("consent_collection_ids", None)
     return redirect(session.pop("post_auth_redirect", url_for("index")))
@@ -580,6 +615,8 @@ def query_mya():
         },
         source_collection_id=required_env("SOURCE_COLLECTION_ID"),
         source_path=source_path,
+        token_reference=session.get("token_reference"),
+        access_token_expires_at=session.get("transfer_access_token_expires_at"),
     )
 
     if request.form.get("submit_action") == "query_and_transfer":
@@ -767,14 +804,14 @@ def job_status(job_id):
     job = get_job(job_id)
     if job is None:
         return {"error": "Job not found."}, 404
-    return jsonify(job)
+    return jsonify(job_for_api(job))
 
 
 @app.get("/jobs")
 def jobs():
     if transfer_client() is None:
         return "", 401
-    return jsonify(list_jobs())
+    return jsonify([job_for_api(job) for job in list_jobs()])
 
 
 @app.get("/transfers")
