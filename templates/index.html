@@ -118,93 +118,9 @@
             </div>
           </section>
 
-          {% if jobs %}
-            <section class="panel">
-              <div class="section-header">
-                <h2>Jobs</h2>
-                <form action="{{ url_for('refresh_transfers') }}" method="post">
-                  <button type="submit" class="button-secondary">Refresh statuses</button>
-                </form>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Job ID</th>
-                      <th>Status</th>
-                      <th>Export</th>
-                      <th>Destination</th>
-                      <th>Transfer Label</th>
-                      <th>Task ID</th>
-                      <th>Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for job in jobs %}
-                      <tr>
-                        <td>
-                          <a href="{{ url_for('job_status', job_id=job.job_id) }}" target="_blank" rel="noopener noreferrer">
-                            <code>{{ job.job_id }}</code>
-                          </a>
-                        </td>
-                        <td>
-                          <code>{{ job.status }}</code>
-                          {% if job.task_url %}
-                            <div>
-                              <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer">Open in Globus</a>
-                            </div>
-                          {% endif %}
-                        </td>
-                        <td>
-                          {% if job.export_name %}
-                            {% if job.export_url %}
-                              <a href="{{ job.export_url }}" target="_blank" rel="noopener noreferrer">
-                                <code>{{ job.export_name }}</code>
-                              </a>
-                            {% else %}
-                              <code>{{ job.export_name }}</code>
-                            {% endif %}
-                          {% else %}
-                            <span>-</span>
-                          {% endif %}
-                        </td>
-                        <td>
-                          {% if job.destination_path %}
-                            {% if job.destination_url %}
-                              <a href="{{ job.destination_url }}" target="_blank" rel="noopener noreferrer">
-                                <strong>Collection:</strong> {{ job.destination_collection_name or "Unknown collection" }}<br>
-                                <strong>Path:</strong> <code>{{ job.destination_path }}</code>
-                              </a>
-                            {% else %}
-                              <strong>Collection:</strong> {{ job.destination_collection_name or "Unknown collection" }}<br>
-                              <strong>Path:</strong> <code>{{ job.destination_path }}</code>
-                            {% endif %}
-                          {% else %}
-                            <span>-</span>
-                          {% endif %}
-                        </td>
-                        <td>
-                          {% if job.transfer_label %}
-                            {{ job.transfer_label }}
-                          {% else %}
-                            <span>-</span>
-                          {% endif %}
-                        </td>
-                        <td>
-                          {% if job.globus_task_id %}
-                            <code>{{ job.globus_task_id }}</code>
-                          {% else %}
-                            <span>-</span>
-                          {% endif %}
-                        </td>
-                        <td>{{ job.updated_at }}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          {% endif %}
+          <div id="jobs-panel">
+            {% include "_jobs.html" %}
+          </div>
         {% else %}
           <section class="panel">
             <h2>Sign in</h2>
@@ -246,6 +162,31 @@
           });
         });
       }
+
+      const jobsPanel = document.getElementById("jobs-panel");
+      let jobsRefreshInProgress = false;
+
+      async function refreshJobsPanel() {
+        if (!jobsPanel || jobsRefreshInProgress || document.hidden) {
+          return;
+        }
+
+        jobsRefreshInProgress = true;
+        try {
+          const response = await fetch("{{ url_for('jobs_table') }}", {
+            cache: "no-store",
+          });
+          if (response.ok) {
+            jobsPanel.innerHTML = await response.text();
+          }
+        } catch {
+          // Keep the current table when a background refresh fails.
+        } finally {
+          jobsRefreshInProgress = false;
+        }
+      }
+
+      setInterval(refreshJobsPanel, 5000);
     </script>
   </body>
 </html>

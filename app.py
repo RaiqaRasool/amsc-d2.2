@@ -932,6 +932,16 @@ def jobs():
     return jsonify([job_for_api(job) for job in list_jobs()])
 
 
+@app.get("/jobs/table")
+def jobs_table():
+    if not session.get("logged_in"):
+        return "", 401
+    return render_template(
+        "_jobs.html",
+        jobs=[job_for_display(job) for job in list_jobs()],
+    )
+
+
 @app.get("/transfers")
 def transfers():
     client = transfer_client()
