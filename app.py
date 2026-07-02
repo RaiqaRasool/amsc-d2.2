@@ -170,6 +170,19 @@ def list_jobs(limit=20):
     return [job_row(row) for row in rows]
 
 
+def list_refreshable_transfer_jobs():
+    with jobs_db() as connection:
+        rows = connection.execute(
+            """
+            SELECT * FROM mya_transfer_jobs
+            WHERE globus_task_id IS NOT NULL
+              AND status NOT IN ('transfer_succeeded', 'transfer_failed')
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+    return [job_row(row) for row in rows]
+
+
 def update_job(job_id, **fields):
     if not fields:
         return get_job(job_id)
@@ -281,6 +294,10 @@ def app_transfer_status(task):
     if status == "INACTIVE":
         return "QUEUED"
     return status
+
+
+def job_transfer_status(task):
+    return "transfer_" + app_transfer_status(task).lower().replace(" ", "_")
 
 
 def status_class(app_status):
@@ -665,8 +682,29 @@ def submit_transfer():
 
 @app.post("/transfers/refresh")
 def refresh_transfers():
-    if transfer_client() is None:
+    client = transfer_client()
+    if client is None:
         return redirect(url_for("login"))
+
+    refreshed = 0
+    failed = 0
+    for job in list_refreshable_transfer_jobs():
+        try:
+            task = client.get_task(job["globus_task_id"])
+        except GlobusAPIError:
+            failed += 1
+            continue
+
+        update_job(job["job_id"], status=job_transfer_status(task))
+        refreshed += 1
+
+    if failed:
+        flash(
+            f"Refreshed {refreshed} transfer jobs; {failed} status checks failed.",
+            "error",
+        )
+    else:
+        flash(f"Refreshed {refreshed} transfer jobs.", "success")
     return redirect(url_for("index"))
 
 
