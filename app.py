@@ -253,6 +253,40 @@ def update_job(job_id, **fields):
     return get_job(job_id)
 
 
+def execute_mya_query(job):
+    query_params = job["query_params"]
+    try:
+        data = run_mysampler(
+            datetime.fromisoformat(query_params["start"]),
+            int(query_params["interval"]),
+            int(query_params["num_samples"]),
+            query_params["pvlist"],
+        )
+        filename = f"mya-{uuid.uuid4()}.csv"
+        output_path = os.path.join(MYA_OUTPUT_DIR, filename)
+        source_path = posixpath.join(
+            required_env("SOURCE_DIRECTORY").rstrip("/") or "/",
+            filename,
+        )
+        os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
+        data.to_csv(output_path)
+    except Exception as error:
+        return update_job(
+            job["job_id"],
+            status="query_failed",
+            error_message=f"MYA query failed: {error}",
+        )
+
+    completed_job = update_job(
+        job["job_id"],
+        source_path=source_path,
+        status="query_complete",
+        error_message=None,
+    )
+    completed_job["row_count"] = len(data)
+    return completed_job
+
+
 init_jobs_db()
 
 
@@ -615,27 +649,10 @@ def query_mya():
     except ValueError:
         return "Invalid MYA query parameters.", 400
 
-    try:
-        data = run_mysampler(start, interval, num_samples, pvlist)
-    except Exception as error:
-        flash(f"MYA query failed: {error}", "error")
-        return redirect(url_for("index"))
-
     job_id = str(uuid.uuid4())
-    filename = f"mya-{uuid.uuid4()}.csv"
-    output_path = os.path.join(MYA_OUTPUT_DIR, filename)
-    source_path = posixpath.join(
-        required_env("SOURCE_DIRECTORY").rstrip("/") or "/",
-        filename,
-    )
-    os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
-    data.to_csv(output_path)
-    session["source_path"] = source_path
-    session["latest_job_id"] = job_id
-
-    create_job(
+    job = create_job(
         job_id=job_id,
-        status="query_complete",
+        status="query_running",
         query_type="mysampler",
         query_params={
             "start": start.isoformat(),
@@ -644,10 +661,18 @@ def query_mya():
             "pvlist": pvlist,
         },
         source_collection_id=required_env("SOURCE_COLLECTION_ID"),
-        source_path=source_path,
         token_reference=session.get("token_reference"),
         access_token_expires_at=session.get("transfer_access_token_expires_at"),
     )
+    job = execute_mya_query(job)
+    session["latest_job_id"] = job_id
+    if job["status"] == "query_failed":
+        flash(job["error_message"], "error")
+        return redirect(url_for("index"))
+
+    source_path = job["source_path"]
+    filename = posixpath.basename(source_path)
+    session["source_path"] = source_path
 
     if request.form.get("submit_action") == "query_and_transfer":
         destination_collection_id = session.get("destination_collection_id")
@@ -676,7 +701,7 @@ def query_mya():
         return redirect(url_for("index"))
 
     flash(
-        f"MYA export created with {len(data)} rows: {filename} (job {job_id})",
+        f"MYA export created with {job['row_count']} rows: {filename} (job {job_id})",
         "success",
     )
     return redirect(url_for("index"))
