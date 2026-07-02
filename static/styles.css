@@ -305,6 +305,52 @@ form {
   display: none;
 }
 
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pv-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--brand);
+  border-radius: 50%;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: help;
+}
+
+.pv-help-tooltip {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  display: none;
+  width: 360px;
+  max-width: 80vw;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  box-shadow: 0 6px 18px rgb(31 41 51 / 16%);
+}
+
+.pv-help:hover .pv-help-tooltip,
+.pv-help:focus .pv-help-tooltip,
+.pv-help:focus-within .pv-help-tooltip {
+  display: block;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;

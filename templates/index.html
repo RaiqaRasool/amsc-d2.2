@@ -66,7 +66,16 @@
                       <input type="number" name="mysampler_num_samples" min="1" value="10" required>
                     </label>
                     <label class="field-wide">
-                      PVs (comma-separated)
+                      <span class="field-label">
+                        PVs (comma-separated)
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing EPICS variables">
+                          ?
+                          <span class="pv-help-tooltip" role="tooltip">
+                            MYA queries require EPICS variable names. You can try values from this
+                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, however is not a complete list of available variables.
+                          </span>
+                        </span>
+                      </span>
                       <input name="mysampler_pvlist" required>
                     </label>
                   </section>
@@ -86,7 +95,16 @@
                       <input name="interval_channel" disabled>
                     </label>
                     <label class="field-wide">
-                      PVs (comma-separated, instead of channel)
+                      <span class="field-label">
+                        PVs (comma-separated, instead of channel)
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing EPICS variables">
+                          ?
+                          <span class="pv-help-tooltip" role="tooltip">
+                            MYA queries require EPICS variable names. You can try values from this
+                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                          </span>
+                        </span>
+                      </span>
                       <input name="interval_pvlist" disabled>
                     </label>
                     <label class="checkbox-label field-wide">
@@ -110,7 +128,16 @@
                       <input type="number" name="mystats_num_bins" min="1" value="24" required disabled>
                     </label>
                     <label class="field-wide">
-                      PVs (comma-separated)
+                      <span class="field-label">
+                        PVs (comma-separated)
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing EPICS variables">
+                          ?
+                          <span class="pv-help-tooltip" role="tooltip">
+                            MYA queries require EPICS variable names. You can try values from this
+                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                          </span>
+                        </span>
+                      </span>
                       <input name="mystats_pvlist" required disabled>
                     </label>
                   </section>
