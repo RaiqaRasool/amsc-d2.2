@@ -14,3 +14,15 @@ services:
       - .:/app
       - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
     command: sh -c "pip install --no-cache-dir -r requirements.txt && python app.py"
+
+  worker:
+    build: .
+    user: "${UID}:${GID}"
+    env_file:
+      - .env
+    environment:
+      WORKER_POLL_INTERVAL: "2"
+    volumes:
+      - .:/app
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python worker.py"
