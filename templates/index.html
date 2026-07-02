@@ -214,5 +214,38 @@
         {% endif %}
       </div>
     </main>
+    <script>
+      const queryForm = document.getElementById("query-form");
+
+      if (queryForm) {
+        const draftKey = "amsc-query-draft";
+        const queryFields = document.querySelectorAll(
+          "#query-form input, input[form='query-form']"
+        );
+
+        try {
+          const draft = JSON.parse(sessionStorage.getItem(draftKey));
+          if (draft) {
+            queryFields.forEach((field) => {
+              if (Object.hasOwn(draft, field.name)) {
+                field.value = draft[field.name];
+              }
+            });
+          }
+        } catch (error) {
+          sessionStorage.removeItem(draftKey);
+        }
+
+        queryFields.forEach((field) => {
+          field.addEventListener("input", () => {
+            const draft = {};
+            queryFields.forEach((queryField) => {
+              draft[queryField.name] = queryField.value;
+            });
+            sessionStorage.setItem(draftKey, JSON.stringify(draft));
+          });
+        });
+      }
+    </script>
   </body>
 </html>
