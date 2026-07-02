@@ -69,6 +69,7 @@ def init_jobs_db():
                 destination_collection_name TEXT,
                 destination_path TEXT,
                 transfer_label TEXT,
+                transfer_requested INTEGER NOT NULL DEFAULT 0,
                 required_scopes TEXT,
                 token_reference TEXT,
                 access_token_expires_at TEXT,
@@ -93,6 +94,11 @@ def init_jobs_db():
             connection.execute(
                 "ALTER TABLE mya_transfer_jobs ADD COLUMN transfer_label TEXT"
             )
+        if "transfer_requested" not in columns:
+            connection.execute(
+                "ALTER TABLE mya_transfer_jobs "
+                "ADD COLUMN transfer_requested INTEGER NOT NULL DEFAULT 0"
+            )
 
 
 def job_row(row):
@@ -100,6 +106,7 @@ def job_row(row):
         return None
     job = dict(row)
     job["query_params"] = json.loads(job["query_params"])
+    job["transfer_requested"] = bool(job["transfer_requested"])
     return job
 
 
@@ -114,7 +121,10 @@ def create_job(
     source_collection_id=None,
     source_path=None,
     destination_collection_id=None,
+    destination_collection_name=None,
     destination_path=None,
+    transfer_label=None,
+    transfer_requested=False,
     required_scopes=None,
     token_reference=None,
     access_token_expires_at=None,
@@ -134,7 +144,10 @@ def create_job(
                 source_collection_id,
                 source_path,
                 destination_collection_id,
+                destination_collection_name,
                 destination_path,
+                transfer_label,
+                transfer_requested,
                 required_scopes,
                 token_reference,
                 access_token_expires_at,
@@ -143,7 +156,7 @@ def create_job(
                 error_message,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -154,7 +167,10 @@ def create_job(
                 source_collection_id,
                 source_path,
                 destination_collection_id,
+                destination_collection_name,
                 destination_path,
+                transfer_label,
+                int(transfer_requested),
                 required_scopes,
                 token_reference,
                 access_token_expires_at,
@@ -649,6 +665,17 @@ def query_mya():
     except ValueError:
         return "Invalid MYA query parameters.", 400
 
+    transfer_requested = request.form.get("submit_action") == "query_and_transfer"
+    destination_collection_id = session.get("destination_collection_id")
+    destination_collection_name = session.get("destination_collection_name")
+    destination_folder = session.get("destination_path")
+    transfer_label_value = request.form.get("transfer_label", "")
+    if transfer_requested and (
+        not destination_collection_id or not destination_folder
+    ):
+        flash("Choose a destination folder before running query and transfer.", "error")
+        return redirect(url_for("index"))
+
     job_id = str(uuid.uuid4())
     job = create_job(
         job_id=job_id,
@@ -661,6 +688,17 @@ def query_mya():
             "pvlist": pvlist,
         },
         source_collection_id=required_env("SOURCE_COLLECTION_ID"),
+        destination_collection_id=(
+            destination_collection_id if transfer_requested else None
+        ),
+        destination_collection_name=(
+            destination_collection_name if transfer_requested else None
+        ),
+        destination_path=destination_folder if transfer_requested else None,
+        transfer_label=(
+            transfer_label(transfer_label_value) if transfer_requested else None
+        ),
+        transfer_requested=transfer_requested,
         token_reference=session.get("token_reference"),
         access_token_expires_at=session.get("transfer_access_token_expires_at"),
     )
@@ -674,22 +712,16 @@ def query_mya():
     filename = posixpath.basename(source_path)
     session["source_path"] = source_path
 
-    if request.form.get("submit_action") == "query_and_transfer":
-        destination_collection_id = session.get("destination_collection_id")
-        destination_folder = session.get("destination_path")
-        if not destination_collection_id or not destination_folder:
-            flash("Choose a destination folder before running query and transfer.", "error")
-            return redirect(url_for("index"))
-
+    if transfer_requested:
         _, transfer_error = submit_transfer_for_job(
             client,
             job_id=job_id,
             source_collection_id=required_env("SOURCE_COLLECTION_ID"),
             source_path=source_path,
             destination_collection_id=destination_collection_id,
-            destination_collection_name=session.get("destination_collection_name"),
+            destination_collection_name=destination_collection_name,
             destination_folder=destination_folder,
-            transfer_label_value=request.form.get("transfer_label", ""),
+            transfer_label_value=transfer_label_value,
         )
         if transfer_error:
             flash(transfer_error, "error")
