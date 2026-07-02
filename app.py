@@ -431,7 +431,7 @@ def job_transfer_status(task):
 
 
 def status_class(app_status):
-    return "status-" + app_status.lower().replace(" ", "-")
+    return "status-" + app_status.lower().replace(" ", "-").replace("_", "-")
 
 
 def transfer_row(task):
@@ -575,6 +575,7 @@ def job_for_display(job):
     if job is None:
         return None
     display_job = dict(job)
+    display_job["status_class"] = status_class(display_job["status"])
     source_path = display_job.get("source_path")
     destination_path = display_job.get("destination_path")
     display_job["export_name"] = (

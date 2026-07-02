@@ -28,7 +28,7 @@
                 </a>
               </td>
               <td>
-                <code>{{ job.status }}</code>
+                <code class="job-status {{ job.status_class }}">{{ job.status }}</code>
                 {% if job.task_url %}
                   <div>
                     <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer">Open in Globus</a>

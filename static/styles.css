@@ -139,6 +139,48 @@ a {
   color: #415064;
 }
 
+.job-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #415064;
+  font-weight: 650;
+}
+
+.status-query-running,
+.status-transfer-submitting,
+.status-transfer-submitted,
+.status-transfer-in-progress {
+  background: #e7f1fb;
+  color: #0a5b95;
+}
+
+.status-query-complete,
+.status-transfer-succeeded {
+  background: #eaf7ee;
+  color: #276738;
+}
+
+.status-query-failed,
+.status-transfer-auth-failed,
+.status-transfer-failed {
+  background: #fdeceb;
+  color: #9f2f24;
+}
+
+.status-transfer-active-with-errors {
+  background: #fff3df;
+  color: #8a5200;
+}
+
+.status-transfer-queued {
+  background: #f7f0ff;
+  color: #67418c;
+}
+
 .notice {
   border: 1px solid var(--border);
   border-radius: 6px;
