@@ -207,6 +207,36 @@ def list_refreshable_transfer_jobs():
     return [job_row(row) for row in rows]
 
 
+def claim_next_job():
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    with jobs_db() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            """
+            SELECT * FROM mya_transfer_jobs
+            WHERE status = 'queued'
+            ORDER BY created_at
+            LIMIT 1
+            """
+        ).fetchone()
+        if row is None:
+            return None
+
+        connection.execute(
+            """
+            UPDATE mya_transfer_jobs
+            SET status = 'query_running', updated_at = ?
+            WHERE job_id = ? AND status = 'queued'
+            """,
+            (now, row["job_id"]),
+        )
+        claimed_row = connection.execute(
+            "SELECT * FROM mya_transfer_jobs WHERE job_id = ?",
+            (row["job_id"],),
+        ).fetchone()
+    return job_row(claimed_row)
+
+
 def update_job(job_id, **fields):
     if not fields:
         return get_job(job_id)
