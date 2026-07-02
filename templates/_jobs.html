@@ -29,11 +29,6 @@
               </td>
               <td>
                 <code class="job-status {{ job.status_class }}">{{ job.status }}</code>
-                {% if job.task_url %}
-                  <div>
-                    <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer">Open in Globus</a>
-                  </div>
-                {% endif %}
               </td>
               <td>
                 {% if job.export_name %}
@@ -72,7 +67,9 @@
               </td>
               <td>
                 {% if job.globus_task_id %}
-                  <code>{{ job.globus_task_id }}</code>
+                  <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer">
+                    <code>{{ job.globus_task_id }}</code>
+                  </a>
                 {% else %}
                   <span>-</span>
                 {% endif %}
