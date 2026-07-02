@@ -1,7 +1,8 @@
 import os
 import time
 
-from app import claim_next_job, execute_job_transfer, execute_mya_query, update_job
+from job_execution import execute_job_transfer, execute_mya_query
+from jobs import claim_next_job, update_job
 
 
 POLL_INTERVAL_SECONDS = float(os.environ.get("WORKER_POLL_INTERVAL", "2"))
