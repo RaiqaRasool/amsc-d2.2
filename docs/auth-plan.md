@@ -1,62 +1,109 @@
-# Globus Web Auth Plan
+# Globus Authentication Design
 
-This note records the first implementation decision for the web prototype.
+This document records the current Globus authentication, consent, and token
+storage design for the web prototype.
 
-## Decision
+## Application Registration
 
-Use a new Globus Auth application registration for this web app, separate from the CLI prototype's native/thick-client registration.
+The Flask server uses a Globus confidential client registration because it can
+keep a client secret. This registration should remain separate from any native
+or CLI application registration.
 
-Register it as a Portal / Science Gateway style application. Do not mark it as a native app if it will run as a server-side Flask web app that can keep a client secret.
+The required local configuration is:
 
-## Local Redirect URI
+```text
+GLOBUS_CLIENT_ID=<confidential-client-id>
+GLOBUS_CLIENT_SECRET=<confidential-client-secret>
+GLOBUS_REDIRECT_URI=http://localhost:5000/callback
+```
 
-For local development, register this redirect URI:
+Never commit the client secret. For local development, register this exact
+redirect URI with Globus:
 
 ```text
 http://localhost:5000/callback
 ```
 
-Globus requires registered redirect URIs to match the redirect sent during OAuth. The official docs require HTTPS redirects in general, with an exception for `http://localhost/*` during development and testing.
+Production deployments must register their deployed callback URI and use HTTPS.
 
-## Values Needed From Globus Registration
+## OAuth Flow
 
-The app will need these values, but they must not be committed with real secrets:
+1. `/login` generates an OAuth state value and starts the confidential-client
+   authorization-code flow.
+2. The authorization request includes the Globus Transfer scope and requests
+   refresh tokens.
+3. Globus redirects the browser to `/callback` with an authorization code and
+   the original state.
+4. `/callback` validates and consumes the state before exchanging the code.
+5. The complete token response is stored in server-side SDK-managed SQLite
+   token storage under a generated namespace.
+6. Flask stores that namespace as `token_reference` in the session. Jobs copy
+   the reference into their durable job record when they are queued.
 
-```text
-GLOBUS_CLIENT_ID=<web-app-client-id>
-GLOBUS_CLIENT_SECRET=<web-app-client-secret>
-GLOBUS_REDIRECT_URI=http://localhost:5000/callback
-```
+The Flask session also retains the current Transfer access token as a fallback
+for browser requests. Background work does not depend on that short-lived
+session token.
 
-The client secret belongs in local environment configuration only.
+## Scopes and Collection Consent
 
-## First OAuth Flow
-
-The first Flask implementation should stay minimal:
-
-1. `/login` creates an authorization URL and redirects the user to Globus.
-2. Globus redirects back to `/callback` with `code` and `state`.
-3. `/callback` verifies `state`.
-4. The app exchanges `code` for tokens using the web app client credentials.
-5. The app stores the Transfer API access token in the Flask session for the prototype.
-
-The first requested Transfer scope should be:
+The base authorization request uses the Globus Transfer `all` scope:
 
 ```text
 urn:globus:auth:scope:transfer.api.globus.org:all
 ```
 
-Source collection data-access consent can be requested proactively or handled after a consent-required response. The CLI prototype already demonstrates both the source collection scope pattern and retry-after-consent behavior.
+Some collections require an additional collection `data_access` scope. When a
+collection browse request returns a consent-required response, the app records
+the collection ID, sends the user through Globus Auth again with that dependent
+scope, and resumes the original browse request afterward.
+
+Query-and-transfer jobs require a durable `token_reference` before queueing so
+the worker can authorize a later transfer after the browser request has ended.
+
+## Server-Side Token Storage
+
+Globus tokens are stored separately from application jobs:
+
+```text
+instance/globus-tokens.sqlite3
+```
+
+`globus_sdk.token_storage.SQLiteTokenStorage` owns this database. Each login is
+stored under a generated namespace, and only that namespace is copied into the
+Flask session and job database.
+
+The worker and monitor use the namespace to load the stored Transfer refresh
+token and construct a `RefreshTokenAuthorizer`. Refreshed token responses are
+written back to the same SDK-managed storage automatically.
+
+The Jobs API removes `token_reference` from serialized responses.
+
+## Service Responsibilities
+
+- **web** starts OAuth, handles callbacks and reactive consent, stores tokens,
+  and attaches token references to transfer jobs.
+- **worker** uses the stored authorization to submit requested transfers.
+- **monitor** uses the stored authorization to inspect submitted Globus tasks.
+
+No background service imports Flask session state.
+
+## Prototype Limitations
+
+The following are acceptable for local development but require hardening before
+production deployment:
+
+- OAuth state values are held in process memory. They are lost on restart and
+  are not shared across multiple web processes.
+- Logout clears the Flask session but does not revoke Globus authorization or
+  delete the corresponding token-storage namespace.
+- Token database access depends on host filesystem permissions rather than a
+  dedicated secrets service or encrypted database.
+- Flask's development server and debug mode are not production deployment
+  configurations.
 
 ## Official References
 
 - Globus Auth Developer Guide: https://docs.globus.org/api/auth/developer-guide/
 - Globus Transfer API Overview: https://docs.globus.org/api/transfer/overview/
-- Globus Transfer Task Submission: https://docs.globus.org/api/transfer/task_submit/
-
-## Current Non-Goals
-
-- No MYA archive integration yet.
-- No transfer submission yet.
-- No persistent token database yet.
-- No production deployment configuration yet.
+- Globus Transfer task submission: https://docs.globus.org/api/transfer/task_submit/
+- Globus Python SDK authorization guide: https://globus-sdk-python.readthedocs.io/en/stable/authorization.html
