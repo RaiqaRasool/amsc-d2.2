@@ -22,13 +22,13 @@ from globus_service import (
     auth_client,
     globus_file_manager_url,
     globus_task_url,
-    requested_transfer_scope,
+    requested_auth_scopes,
     status_class,
     store_token_response,
     transfer_client_from_token_reference,
     transfer_label,
 )
-from jobs import create_job, get_job, list_jobs
+from jobs import create_job, get_job_for_identity, list_jobs
 
 # ponytail: in-memory state store for local dev; use server-side session storage
 # if this runs with multiple processes or restarts between login and callback.
@@ -115,13 +115,15 @@ def parse_pvlist(value):
 
 @app.get("/")
 def index():
+    globus_identity = session.get("globus_identity")
+    logged_in = bool(session.get("logged_in") and globus_identity)
     return render_template(
         "index.html",
-        logged_in=session.get("logged_in"),
+        logged_in=logged_in,
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
-        jobs=[job_for_display(job) for job in list_jobs()],
+        jobs=[job_for_display(job) for job in list_jobs(globus_identity)],
     )
 
 
@@ -133,7 +135,7 @@ def login():
     client = auth_client()
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
-        requested_scopes=requested_transfer_scope(
+        requested_scopes=requested_auth_scopes(
             session.get("consent_collection_ids")
         ),
         refresh_tokens=True,
@@ -160,13 +162,14 @@ def callback():
     client = auth_client()
     client.oauth2_start_flow(
         redirect_uri=required_env("GLOBUS_REDIRECT_URI"),
-        requested_scopes=requested_transfer_scope(
+        requested_scopes=requested_auth_scopes(
             session.get("consent_collection_ids")
         ),
         refresh_tokens=True,
         state=returned_state,
     )
     token_response = client.oauth2_exchange_code_for_tokens(code)
+    identity_claims = token_response.decode_id_token()
     transfer_tokens = token_response.by_resource_server[TRANSFER_RESOURCE_SERVER]
     token_reference = store_token_response(token_response)
 
@@ -176,6 +179,10 @@ def callback():
         "expires_at_seconds"
     ]
     session["token_reference"] = token_reference
+    session["globus_identity"] = identity_claims["sub"]
+    session["user_identity"] = identity_claims.get(
+        "preferred_username", identity_claims["sub"]
+    )
 
     session.pop("consent_collection_ids", None)
     return redirect(session.pop("post_auth_redirect", url_for("index")))
@@ -199,7 +206,8 @@ def search_collections():
 
 @app.post("/mya/query")
 def query_mya():
-    if transfer_client() is None:
+    globus_identity = session.get("globus_identity")
+    if transfer_client() is None or not globus_identity:
         return redirect(url_for("login"))
 
     query_type = request.form.get("query_type", "mysampler").strip().lower()
@@ -285,6 +293,8 @@ def query_mya():
         status="queued",
         query_type=query_type,
         query_params=query_params,
+        user_identity=session.get("user_identity"),
+        globus_identity=globus_identity,
         source_collection_id=required_env("SOURCE_COLLECTION_ID"),
         destination_collection_id=(
             destination_collection_id if transfer_requested else None
@@ -381,10 +391,11 @@ def reset_destination():
 
 @app.get("/jobs/<job_id>")
 def job_status(job_id):
-    if transfer_client() is None:
+    globus_identity = session.get("globus_identity")
+    if transfer_client() is None or not globus_identity:
         return "", 401
 
-    job = get_job(job_id)
+    job = get_job_for_identity(job_id, globus_identity)
     if job is None:
         return {"error": "Job not found."}, 404
     return jsonify(job_for_api(job))
@@ -392,18 +403,20 @@ def job_status(job_id):
 
 @app.get("/jobs")
 def jobs():
-    if transfer_client() is None:
+    globus_identity = session.get("globus_identity")
+    if transfer_client() is None or not globus_identity:
         return "", 401
-    return jsonify([job_for_api(job) for job in list_jobs()])
+    return jsonify([job_for_api(job) for job in list_jobs(globus_identity)])
 
 
 @app.get("/jobs/table")
 def jobs_table():
-    if not session.get("logged_in"):
+    globus_identity = session.get("globus_identity")
+    if not session.get("logged_in") or not globus_identity:
         return "", 401
     return render_template(
         "_jobs.html",
-        jobs=[job_for_display(job) for job in list_jobs()],
+        jobs=[job_for_display(job) for job in list_jobs(globus_identity)],
     )
 
 

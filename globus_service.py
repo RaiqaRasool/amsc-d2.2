@@ -4,7 +4,7 @@ from urllib.parse import quote
 
 import globus_sdk
 from globus_sdk.exc import GlobusAPIError
-from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
+from globus_sdk.scopes import AuthScopes, GCSCollectionScopes, TransferScopes
 from globus_sdk.token_storage import SQLiteTokenStorage
 
 from config import (
@@ -51,14 +51,15 @@ def transfer_client_from_token_reference(token_reference):
     return globus_sdk.TransferClient(authorizer=authorizer)
 
 
-def requested_transfer_scope(destination_collection_ids=None):
-    if not destination_collection_ids:
-        return TransferScopes.all
-    data_access_scopes = [
-        GCSCollectionScopes(collection_id).data_access
-        for collection_id in destination_collection_ids
-    ]
-    return TransferScopes.all.with_dependencies(data_access_scopes)
+def requested_auth_scopes(destination_collection_ids=None):
+    transfer_scope = TransferScopes.all
+    if destination_collection_ids:
+        data_access_scopes = [
+            GCSCollectionScopes(collection_id).data_access
+            for collection_id in destination_collection_ids
+        ]
+        transfer_scope = transfer_scope.with_dependencies(data_access_scopes)
+    return [AuthScopes.openid, AuthScopes.profile, transfer_scope]
 
 
 def destination_file_path(destination_folder, source_path):

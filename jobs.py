@@ -57,6 +57,12 @@ def init_jobs_db():
                 "ALTER TABLE mya_transfer_jobs "
                 "ADD COLUMN transfer_requested INTEGER NOT NULL DEFAULT 0"
             )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_mya_transfer_jobs_globus_identity
+            ON mya_transfer_jobs (globus_identity, created_at DESC)
+            """
+        )
 
 
 def job_row(row):
@@ -151,15 +157,32 @@ def get_job(job_id):
     return job_row(row)
 
 
-def list_jobs(limit=20):
+def get_job_for_identity(job_id, globus_identity):
+    if not globus_identity:
+        return None
+    with jobs_db() as connection:
+        row = connection.execute(
+            """
+            SELECT * FROM mya_transfer_jobs
+            WHERE job_id = ? AND globus_identity = ?
+            """,
+            (job_id, globus_identity),
+        ).fetchone()
+    return job_row(row)
+
+
+def list_jobs(globus_identity, limit=20):
+    if not globus_identity:
+        return []
     with jobs_db() as connection:
         rows = connection.execute(
             """
             SELECT * FROM mya_transfer_jobs
+            WHERE globus_identity = ?
             ORDER BY created_at DESC
             LIMIT ?
             """,
-            (limit,),
+            (globus_identity, limit),
         ).fetchall()
     return [job_row(row) for row in rows]
 
