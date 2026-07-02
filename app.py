@@ -703,8 +703,7 @@ def search_collections():
 
 @app.post("/mya/query")
 def query_mya():
-    client = transfer_client()
-    if client is None:
+    if transfer_client() is None:
         return redirect(url_for("login"))
 
     try:
@@ -731,11 +730,18 @@ def query_mya():
     ):
         flash("Choose a destination folder before running query and transfer.", "error")
         return redirect(url_for("index"))
+    if transfer_requested and not session.get("token_reference"):
+        flash(
+            "Sign in again before queueing a background Globus transfer.",
+            "error",
+        )
+        session["post_auth_redirect"] = url_for("index")
+        return redirect(url_for("login"))
 
     job_id = str(uuid.uuid4())
-    job = create_job(
+    create_job(
         job_id=job_id,
-        status="query_running",
+        status="queued",
         query_type="mysampler",
         query_params={
             "start": start.isoformat(),
@@ -758,40 +764,9 @@ def query_mya():
         token_reference=session.get("token_reference"),
         access_token_expires_at=session.get("transfer_access_token_expires_at"),
     )
-    job = execute_mya_query(job)
     session["latest_job_id"] = job_id
-    if job["status"] == "query_failed":
-        flash(job["error_message"], "error")
-        return redirect(url_for("index"))
-
-    source_path = job["source_path"]
-    filename = posixpath.basename(source_path)
-    session["source_path"] = source_path
-
-    if transfer_requested:
-        _, transfer_error = submit_transfer_for_job(
-            client,
-            job_id=job_id,
-            source_collection_id=required_env("SOURCE_COLLECTION_ID"),
-            source_path=source_path,
-            destination_collection_id=destination_collection_id,
-            destination_collection_name=destination_collection_name,
-            destination_folder=destination_folder,
-            transfer_label_value=transfer_label_value,
-        )
-        if transfer_error:
-            flash(transfer_error, "error")
-        else:
-            flash(
-                f"MYA export created and transfer submitted: {filename} (job {job_id})",
-                "success",
-            )
-        return redirect(url_for("index"))
-
-    flash(
-        f"MYA export created with {job['row_count']} rows: {filename} (job {job_id})",
-        "success",
-    )
+    session.pop("source_path", None)
+    flash(f"MYA job queued: {job_id}", "success")
     return redirect(url_for("index"))
 
 
