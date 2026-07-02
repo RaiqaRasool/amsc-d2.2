@@ -1,7 +1,7 @@
+import json
 import os
 import posixpath
 import uuid
-from datetime import datetime
 
 from config import MYA_OUTPUT_DIR, required_env
 from globus_service import (
@@ -9,26 +9,25 @@ from globus_service import (
     transfer_client_from_token_reference,
 )
 from jobs import get_job, update_job
-from mya_query import run_mysampler
+from mya_query import run_mya_query
 
 
 def execute_mya_query(job):
-    query_params = job["query_params"]
     try:
-        data = run_mysampler(
-            datetime.fromisoformat(query_params["start"]),
-            int(query_params["interval"]),
-            int(query_params["num_samples"]),
-            query_params["pvlist"],
-        )
-        filename = f"mya-{uuid.uuid4()}.csv"
+        data = run_mya_query(job["query_type"], job["query_params"])
+        extension = "json" if job["query_type"] in ("point", "channel") else "csv"
+        filename = f"mya-{uuid.uuid4()}.{extension}"
         output_path = os.path.join(MYA_OUTPUT_DIR, filename)
         source_path = posixpath.join(
             required_env("SOURCE_DIRECTORY").rstrip("/") or "/",
             filename,
         )
         os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
-        data.to_csv(output_path)
+        if extension == "json":
+            with open(output_path, "w") as output_file:
+                json.dump(data, output_file, indent=2, default=str)
+        else:
+            data.to_csv(output_path)
     except Exception as error:
         return update_job(
             job["job_id"],
@@ -42,7 +41,7 @@ def execute_mya_query(job):
         status="query_complete",
         error_message=None,
     )
-    completed_job["row_count"] = len(data)
+    completed_job["row_count"] = len(data) if hasattr(data, "__len__") else 1
     return completed_job
 
 
