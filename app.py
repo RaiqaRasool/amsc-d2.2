@@ -430,6 +430,26 @@ def job_transfer_status(task):
     return "transfer_" + app_transfer_status(task).lower().replace(" ", "_")
 
 
+def refresh_transfer_job(job):
+    if not job.get("globus_task_id"):
+        return job
+    if not job.get("token_reference"):
+        raise RuntimeError("Job has no durable Globus authorization.")
+
+    client = transfer_client(job["token_reference"])
+    if client is None:
+        raise RuntimeError("Stored Globus authorization is unavailable.")
+
+    task = client.get_task(job["globus_task_id"])
+    fields = {"status": job_transfer_status(task)}
+    destination_collection_name = task.get("destination_endpoint_display_name")
+    if destination_collection_name:
+        fields["destination_collection_name"] = destination_collection_name
+    if task.get("label"):
+        fields["transfer_label"] = task["label"]
+    return update_job(job["job_id"], **fields)
+
+
 def status_class(app_status):
     return "status-" + app_status.lower().replace(" ", "-").replace("_", "-")
 
@@ -609,7 +629,6 @@ def job_for_api(job):
 
 @app.get("/")
 def index():
-    client = transfer_client()
     latest_job_id = session.get("latest_job_id")
     latest_job = job_for_display(get_job(latest_job_id)) if latest_job_id else None
     return render_template(
@@ -623,7 +642,6 @@ def index():
         latest_job=latest_job,
         latest_export_name=latest_job.get("export_name") if latest_job else None,
         latest_export_url=latest_job.get("export_url") if latest_job else None,
-        transfers=app_transfers(client) if client is not None else [],
     )
 
 
@@ -876,42 +894,6 @@ def submit_transfer():
         flash(transfer_error, "error")
         return redirect(url_for("index"))
 
-    return redirect(url_for("index"))
-
-
-@app.post("/transfers/refresh")
-def refresh_transfers():
-    client = transfer_client()
-    if client is None:
-        return redirect(url_for("login"))
-
-    refreshed = 0
-    failed = 0
-    for job in list_refreshable_transfer_jobs():
-        try:
-            task = client.get_task(job["globus_task_id"])
-        except GlobusAPIError:
-            failed += 1
-            continue
-
-        fields = {"status": job_transfer_status(task)}
-        destination_collection_name = task.get(
-            "destination_endpoint_display_name"
-        )
-        if destination_collection_name:
-            fields["destination_collection_name"] = destination_collection_name
-        if task.get("label"):
-            fields["transfer_label"] = task["label"]
-        update_job(job["job_id"], **fields)
-        refreshed += 1
-
-    if failed:
-        flash(
-            f"Refreshed {refreshed} transfer jobs; {failed} status checks failed.",
-            "error",
-        )
-    else:
-        flash(f"Refreshed {refreshed} transfer jobs.", "success")
     return redirect(url_for("index"))
 
 
