@@ -405,10 +405,6 @@ def transfer_error_message(error):
     return message
 
 
-def task_source_collection_id(task):
-    return task.get("source_endpoint_id", task.get("source_endpoint"))
-
-
 def app_transfer_status(task):
     status = task.get("status", "UNKNOWN")
     failed = int(task.get("subtasks_failed", 0) or 0)
@@ -452,33 +448,6 @@ def refresh_transfer_job(job):
 
 def status_class(app_status):
     return "status-" + app_status.lower().replace(" ", "-").replace("_", "-")
-
-
-def transfer_row(task):
-    app_status = app_transfer_status(task)
-    return {
-        **task,
-        "app_status": app_status,
-        "status_class": status_class(app_status),
-    }
-
-
-def app_transfers(client):
-    source_collection_id = required_env("SOURCE_COLLECTION_ID")
-    tasks = client.task_list(
-        limit=20,
-        orderby="request_time DESC",
-        filter={
-            "type": "TRANSFER",
-            "endpoint_id": source_collection_id,
-            "label": f"~{TRANSFER_LABEL_PREFIX}*",
-        },
-    )
-    return [
-        transfer_row(task)
-        for task in tasks
-        if task_source_collection_id(task) == source_collection_id
-    ]
 
 
 def globus_file_manager_url(collection_id, path):
@@ -923,14 +892,6 @@ def jobs_table():
         "_jobs.html",
         jobs=[job_for_display(job) for job in list_jobs()],
     )
-
-
-@app.get("/transfers")
-def transfers():
-    client = transfer_client()
-    if client is None:
-        return "", 401
-    return render_template("_transfers.html", transfers=app_transfers(client))
 
 
 @app.get("/logout")
