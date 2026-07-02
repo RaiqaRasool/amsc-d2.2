@@ -9,7 +9,17 @@ from urllib.parse import quote
 
 import globus_sdk
 from dotenv import load_dotenv
-from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    flash,
+    has_request_context,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from globus_sdk.exc import GlobusAPIError
 from globus_sdk.scopes import GCSCollectionScopes, TransferScopes
 from globus_sdk.token_storage import SQLiteTokenStorage
@@ -328,6 +338,8 @@ def transfer_client(token_reference=None):
             )
             return globus_sdk.TransferClient(authorizer=authorizer)
 
+    if not has_request_context():
+        return None
     access_token = session.get("transfer_access_token")
     if not access_token:
         return None
@@ -513,6 +525,50 @@ def submit_transfer_for_job(
             error_message=None,
         )
     return response, None
+
+
+def execute_job_transfer(job):
+    if not job.get("transfer_requested"):
+        return job
+    required_fields = (
+        "source_collection_id",
+        "source_path",
+        "destination_collection_id",
+        "destination_path",
+    )
+    if any(not job.get(field) for field in required_fields):
+        return update_job(
+            job["job_id"],
+            status="transfer_failed",
+            error_message="Job is missing required transfer details.",
+        )
+    if not job.get("token_reference"):
+        return update_job(
+            job["job_id"],
+            status="transfer_auth_failed",
+            error_message="No durable Globus authorization is available.",
+        )
+
+    client = transfer_client(job["token_reference"])
+    if client is None:
+        return update_job(
+            job["job_id"],
+            status="transfer_auth_failed",
+            error_message="Stored Globus authorization is unavailable.",
+        )
+
+    update_job(job["job_id"], status="transfer_submitting", error_message=None)
+    submit_transfer_for_job(
+        client,
+        job_id=job["job_id"],
+        source_collection_id=job["source_collection_id"],
+        source_path=job["source_path"],
+        destination_collection_id=job["destination_collection_id"],
+        destination_collection_name=job["destination_collection_name"],
+        destination_folder=job["destination_path"],
+        transfer_label_value=job["transfer_label"] or "",
+    )
+    return get_job(job["job_id"])
 
 
 def job_for_display(job):
