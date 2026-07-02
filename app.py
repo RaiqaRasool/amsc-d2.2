@@ -105,6 +105,14 @@ def job_for_api(job):
     return api_job
 
 
+def parse_form_datetime(field_name):
+    return datetime.fromisoformat(request.form.get(field_name, ""))
+
+
+def parse_pvlist(value):
+    return [pv.strip() for pv in value.split(",") if pv.strip()]
+
+
 @app.get("/")
 def index():
     return render_template(
@@ -194,19 +202,64 @@ def query_mya():
     if transfer_client() is None:
         return redirect(url_for("login"))
 
+    query_type = request.form.get("query_type", "mysampler").strip().lower()
     try:
-        start = datetime.fromisoformat(request.form.get("start", ""))
-        interval = int(request.form.get("interval", ""))
-        num_samples = int(request.form.get("num_samples", ""))
-        pvlist = [
-            pv.strip()
-            for pv in request.form.get("pvlist", "").split(",")
-            if pv.strip()
-        ]
-        if interval <= 0 or num_samples <= 0 or not pvlist:
+        if query_type == "mysampler":
+            interval = int(request.form.get("mysampler_interval", ""))
+            num_samples = int(request.form.get("mysampler_num_samples", ""))
+            pvlist = parse_pvlist(request.form.get("mysampler_pvlist", ""))
+            if interval <= 0 or num_samples <= 0 or not pvlist:
+                raise ValueError
+            query_params = {
+                "start": parse_form_datetime("mysampler_start").isoformat(),
+                "interval": interval,
+                "num_samples": num_samples,
+                "pvlist": pvlist,
+            }
+        elif query_type == "interval":
+            begin = parse_form_datetime("interval_begin")
+            end = parse_form_datetime("interval_end")
+            pvlist = parse_pvlist(request.form.get("interval_pvlist", ""))
+            channel = request.form.get("interval_channel", "").strip()
+            if end <= begin or (not pvlist and not channel):
+                raise ValueError
+            query_params = {
+                "begin": begin.isoformat(),
+                "end": end.isoformat(),
+                "prior_point": request.form.get("interval_prior_point") == "true",
+                "pvlist": pvlist,
+                "channel": channel,
+            }
+        elif query_type == "mystats":
+            start = parse_form_datetime("mystats_start")
+            end = parse_form_datetime("mystats_end")
+            num_bins = int(request.form.get("mystats_num_bins", ""))
+            pvlist = parse_pvlist(request.form.get("mystats_pvlist", ""))
+            if end <= start or num_bins <= 0 or not pvlist:
+                raise ValueError
+            query_params = {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "num_bins": num_bins,
+                "pvlist": pvlist,
+            }
+        elif query_type == "point":
+            channel = request.form.get("point_channel", "").strip()
+            if not channel:
+                raise ValueError
+            query_params = {
+                "channel": channel,
+                "time": parse_form_datetime("point_time").isoformat(),
+            }
+        elif query_type == "channel":
+            pattern = request.form.get("channel_pattern", "").strip()
+            if not pattern:
+                raise ValueError
+            query_params = {"pattern": pattern}
+        else:
             raise ValueError
     except ValueError:
-        return "Invalid MYA query parameters.", 400
+        return f"Invalid {query_type} query parameters.", 400
 
     transfer_requested = request.form.get("submit_action") == "query_and_transfer"
     destination_collection_id = session.get("destination_collection_id")
@@ -230,13 +283,8 @@ def query_mya():
     create_job(
         job_id=job_id,
         status="queued",
-        query_type="mysampler",
-        query_params={
-            "start": start.isoformat(),
-            "interval": interval,
-            "num_samples": num_samples,
-            "pvlist": pvlist,
-        },
+        query_type=query_type,
+        query_params=query_params,
         source_collection_id=required_env("SOURCE_COLLECTION_ID"),
         destination_collection_id=(
             destination_collection_id if transfer_requested else None

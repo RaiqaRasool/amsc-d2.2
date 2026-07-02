@@ -31,28 +31,109 @@
 
             <div class="request-stack">
               <section class="subpanel">
-                <h3>Query Params</h3>
+                <form id="query-form" action="{{ url_for('query_mya') }}" method="post">
+                  <input type="hidden" name="query_type" value="mysampler">
+                  <div class="query-tabs" role="tablist" aria-label="MYA query type">
+                    {% for query_type, query_name in (
+                      ('mysampler', 'MySampler'),
+                      ('interval', 'Interval'),
+                      ('mystats', 'MyStats'),
+                      ('point', 'Point'),
+                      ('channel', 'Channel')
+                    ) %}
+                      <button
+                        type="button"
+                        class="query-tab{% if query_type == 'mysampler' %} is-active{% endif %}"
+                        data-query-tab="{{ query_type }}"
+                        role="tab"
+                        aria-selected="{{ 'true' if query_type == 'mysampler' else 'false' }}"
+                      >{{ query_name }}</button>
+                    {% endfor %}
+                  </div>
 
-                <form id="query-form" action="{{ url_for('query_mya') }}" method="post" class="form-grid">
-                  <label>
-                    Start
-                    <input type="datetime-local" name="start" required>
-                  </label>
+                  <section class="query-panel form-grid" data-query-panel="mysampler">
+                    <h3 class="field-wide">MySampler Query</h3>
+                    <label>
+                      Start
+                      <input type="datetime-local" name="mysampler_start" required>
+                    </label>
+                    <label>
+                      Interval (milliseconds)
+                      <input type="number" name="mysampler_interval" min="1" value="60000" required>
+                    </label>
+                    <label>
+                      Samples
+                      <input type="number" name="mysampler_num_samples" min="1" value="10" required>
+                    </label>
+                    <label class="field-wide">
+                      PVs (comma-separated)
+                      <input name="mysampler_pvlist" required>
+                    </label>
+                  </section>
 
-                  <label>
-                    Interval (milliseconds)
-                    <input type="number" name="interval" min="1" value="60000" required>
-                  </label>
+                  <section class="query-panel form-grid" data-query-panel="interval" hidden>
+                    <h3 class="field-wide">Interval Query</h3>
+                    <label>
+                      Begin
+                      <input type="datetime-local" name="interval_begin" required disabled>
+                    </label>
+                    <label>
+                      End
+                      <input type="datetime-local" name="interval_end" required disabled>
+                    </label>
+                    <label>
+                      Channel (when querying one PV)
+                      <input name="interval_channel" disabled>
+                    </label>
+                    <label class="field-wide">
+                      PVs (comma-separated, instead of channel)
+                      <input name="interval_pvlist" disabled>
+                    </label>
+                    <label class="checkbox-label field-wide">
+                      <input type="checkbox" name="interval_prior_point" value="true" checked disabled>
+                      Include the point immediately before the interval
+                    </label>
+                  </section>
 
-                  <label>
-                    Samples
-                    <input type="number" name="num_samples" min="1" value="10" required>
-                  </label>
+                  <section class="query-panel form-grid" data-query-panel="mystats" hidden>
+                    <h3 class="field-wide">MyStats Query</h3>
+                    <label>
+                      Start
+                      <input type="datetime-local" name="mystats_start" required disabled>
+                    </label>
+                    <label>
+                      End
+                      <input type="datetime-local" name="mystats_end" required disabled>
+                    </label>
+                    <label>
+                      Bins
+                      <input type="number" name="mystats_num_bins" min="1" value="24" required disabled>
+                    </label>
+                    <label class="field-wide">
+                      PVs (comma-separated)
+                      <input name="mystats_pvlist" required disabled>
+                    </label>
+                  </section>
 
-                  <label class="field-wide">
-                    PVs (comma-separated)
-                    <input name="pvlist" required>
-                  </label>
+                  <section class="query-panel form-grid" data-query-panel="point" hidden>
+                    <h3 class="field-wide">Point Query</h3>
+                    <label>
+                      Channel
+                      <input name="point_channel" required disabled>
+                    </label>
+                    <label>
+                      Time
+                      <input type="datetime-local" name="point_time" required disabled>
+                    </label>
+                  </section>
+
+                  <section class="query-panel form-grid" data-query-panel="channel" hidden>
+                    <h3 class="field-wide">Channel Query</h3>
+                    <label class="field-wide">
+                      Channel pattern
+                      <input name="channel_pattern" required disabled>
+                    </label>
+                  </section>
 
                   <div class="actions field-wide">
                     <button type="submit" name="submit_action" value="query_only" class="button-secondary">
@@ -135,16 +216,47 @@
 
       if (queryForm) {
         const draftKey = "amsc-query-draft";
+        const queryTypeField = queryForm.querySelector("[name='query_type']");
+        const queryTabs = queryForm.querySelectorAll("[data-query-tab]");
+        const queryPanels = queryForm.querySelectorAll("[data-query-panel]");
         const queryFields = document.querySelectorAll(
           "#query-form input, input[form='query-form']"
         );
+
+        function activateQueryTab(queryType) {
+          queryTypeField.value = queryType;
+          queryTabs.forEach((tab) => {
+            const isActive = tab.dataset.queryTab === queryType;
+            tab.classList.toggle("is-active", isActive);
+            tab.setAttribute("aria-selected", String(isActive));
+          });
+          queryPanels.forEach((panel) => {
+            const isActive = panel.dataset.queryPanel === queryType;
+            panel.hidden = !isActive;
+            panel.querySelectorAll("input").forEach((field) => {
+              field.disabled = !isActive;
+            });
+          });
+        }
+
+        function saveQueryDraft() {
+          const draft = {};
+          queryFields.forEach((field) => {
+            draft[field.name] = field.type === "checkbox" ? field.checked : field.value;
+          });
+          sessionStorage.setItem(draftKey, JSON.stringify(draft));
+        }
 
         try {
           const draft = JSON.parse(sessionStorage.getItem(draftKey));
           if (draft) {
             queryFields.forEach((field) => {
               if (Object.hasOwn(draft, field.name)) {
-                field.value = draft[field.name];
+                if (field.type === "checkbox") {
+                  field.checked = draft[field.name];
+                } else {
+                  field.value = draft[field.name];
+                }
               }
             });
           }
@@ -152,14 +264,16 @@
           sessionStorage.removeItem(draftKey);
         }
 
-        queryFields.forEach((field) => {
-          field.addEventListener("input", () => {
-            const draft = {};
-            queryFields.forEach((queryField) => {
-              draft[queryField.name] = queryField.value;
-            });
-            sessionStorage.setItem(draftKey, JSON.stringify(draft));
+        activateQueryTab(queryTypeField.value);
+        queryTabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            activateQueryTab(tab.dataset.queryTab);
+            saveQueryDraft();
           });
+        });
+        queryFields.forEach((field) => {
+          field.addEventListener("input", saveQueryDraft);
+          field.addEventListener("change", saveQueryDraft);
         });
       }
 
