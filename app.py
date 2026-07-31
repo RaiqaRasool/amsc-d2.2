@@ -29,6 +29,7 @@ from globus_service import (
     transfer_label,
 )
 from jobs import create_job, get_job_for_identity, list_jobs
+from query_validation import validate_query_params
 
 # ponytail: in-memory state store for local dev; use server-side session storage
 # if this runs with multiple processes or restarts between login and callback.
@@ -36,6 +37,7 @@ PENDING_OAUTH_STATES = set()
 
 app = Flask(__name__)
 app.secret_key = required_env("FLASK_SECRET_KEY")
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
 
 def transfer_client():
@@ -266,6 +268,7 @@ def query_mya():
             query_params = {"pattern": pattern}
         else:
             raise ValueError
+        validate_query_params(query_type, query_params)
     except ValueError:
         return f"Invalid {query_type} query parameters.", 400
 

@@ -63,7 +63,7 @@
                     </label>
                     <label>
                       Samples
-                      <input type="number" name="mysampler_num_samples" min="1" value="10" required>
+                      <input type="number" name="mysampler_num_samples" min="1" max="100000" value="10" required>
                     </label>
                     <label class="field-wide">
                       <span class="field-label">
@@ -76,7 +76,7 @@
                           </span>
                         </span>
                       </span>
-                      <input name="mysampler_pvlist" required>
+                      <input name="mysampler_pvlist" maxlength="25699" required>
                     </label>
                   </section>
 
@@ -92,7 +92,7 @@
                     </label>
                     <label>
                       Channel (when querying one PV)
-                      <input name="interval_channel" disabled>
+                      <input name="interval_channel" maxlength="256" disabled>
                     </label>
                     <label class="field-wide">
                       <span class="field-label">
@@ -105,7 +105,7 @@
                           </span>
                         </span>
                       </span>
-                      <input name="interval_pvlist" disabled>
+                      <input name="interval_pvlist" maxlength="25699" disabled>
                     </label>
                     <label class="checkbox-label field-wide">
                       <input type="checkbox" name="interval_prior_point" value="true" checked disabled>
@@ -125,7 +125,7 @@
                     </label>
                     <label>
                       Bins
-                      <input type="number" name="mystats_num_bins" min="1" value="24" required disabled>
+                      <input type="number" name="mystats_num_bins" min="1" max="10000" value="24" required disabled>
                     </label>
                     <label class="field-wide">
                       <span class="field-label">
@@ -138,7 +138,7 @@
                           </span>
                         </span>
                       </span>
-                      <input name="mystats_pvlist" required disabled>
+                      <input name="mystats_pvlist" maxlength="25699" required disabled>
                     </label>
                   </section>
 
@@ -146,7 +146,7 @@
                     <h3 class="field-wide">Point Query</h3>
                     <label>
                       Channel
-                      <input name="point_channel" required disabled>
+                      <input name="point_channel" maxlength="256" required disabled>
                     </label>
                     <label>
                       Time
@@ -158,7 +158,7 @@
                     <h3 class="field-wide">Channel Query</h3>
                     <label class="field-wide">
                       Channel pattern
-                      <input name="channel_pattern" required disabled>
+                      <input name="channel_pattern" maxlength="256" required disabled>
                     </label>
                   </section>
 
