@@ -269,8 +269,10 @@ def query_mya():
         else:
             raise ValueError
         validate_query_params(query_type, query_params)
-    except ValueError:
-        return f"Invalid {query_type} query parameters.", 400
+    except ValueError as error:
+        message = str(error) or f"Check the values in the {query_type} query."
+        flash(message, "error")
+        return redirect(url_for("index"))
 
     transfer_requested = request.form.get("submit_action") == "query_and_transfer"
     destination_collection_id = session.get("destination_collection_id")

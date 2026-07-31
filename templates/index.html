@@ -274,6 +274,48 @@
           sessionStorage.setItem(draftKey, JSON.stringify(draft));
         }
 
+        function validatePvList(fieldName) {
+          const field = queryForm.elements[fieldName];
+          const pvs = field.value.split(",").map((pv) => pv.trim()).filter(Boolean);
+          if (pvs.length > 100) {
+            field.setCustomValidity("Enter no more than 100 PVs per query.");
+          } else if (pvs.some((pv) => pv.length > 256)) {
+            field.setCustomValidity("Each PV name must be 256 characters or fewer.");
+          }
+        }
+
+        function validateDateRange(startName, endName) {
+          const startField = queryForm.elements[startName];
+          const endField = queryForm.elements[endName];
+          const start = new Date(startField.value);
+          const end = new Date(endField.value);
+          const maximumWindow = 31 * 24 * 60 * 60 * 1000;
+          if (end <= start) {
+            endField.setCustomValidity("Choose an end time after the start time.");
+          } else if (end - start > maximumWindow) {
+            endField.setCustomValidity("Choose a time range of 31 days or fewer.");
+          }
+        }
+
+        function validateQueryFields() {
+          queryFields.forEach((field) => field.setCustomValidity(""));
+
+          if (queryTypeField.value === "mysampler") {
+            validatePvList("mysampler_pvlist");
+          } else if (queryTypeField.value === "interval") {
+            const channelField = queryForm.elements.interval_channel;
+            const pvField = queryForm.elements.interval_pvlist;
+            if (!channelField.value.trim() && !pvField.value.trim()) {
+              pvField.setCustomValidity("Enter one channel or a comma-separated PV list.");
+            }
+            validatePvList("interval_pvlist");
+            validateDateRange("interval_begin", "interval_end");
+          } else if (queryTypeField.value === "mystats") {
+            validatePvList("mystats_pvlist");
+            validateDateRange("mystats_start", "mystats_end");
+          }
+        }
+
         try {
           const draft = JSON.parse(sessionStorage.getItem(draftKey));
           if (draft) {
@@ -299,8 +341,17 @@
           });
         });
         queryFields.forEach((field) => {
-          field.addEventListener("input", saveQueryDraft);
+          field.addEventListener("input", () => {
+            field.setCustomValidity("");
+            saveQueryDraft();
+          });
           field.addEventListener("change", saveQueryDraft);
+        });
+        queryForm.addEventListener("submit", (event) => {
+          validateQueryFields();
+          if (!queryForm.reportValidity()) {
+            event.preventDefault();
+          }
         });
       }
 

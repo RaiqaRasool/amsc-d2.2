@@ -14,15 +14,19 @@ oversized queries before work enters the background queue.
 - Interval and MyStats time windows may span at most 31 days.
 - Channel names and channel search patterns may contain at most 256 characters.
 - Browser constraints provide early feedback, but backend validation is
-  authoritative and returns HTTP 400 for invalid query parameters.
+  authoritative. Before submission, the browser also checks PV count and
+  length, time-window length, chronological order, and the Interval requirement
+  for either a channel or PV list. Invalid backend query parameters return the
+  user to the query form with a styled error describing the violated limit.
 
 These initial limits are application safety defaults. Revisit them with the
 MYA archive developers after measuring representative query cost and capacity.
 
 ## Failure Behavior
 
-Rejected queries are not queued and do not contact MYA. Oversized request
-bodies receive Flask's HTTP 413 response.
+Rejected queries are not queued and do not contact MYA. The form values remain
+available from the browser's saved draft so the user can correct the query.
+Oversized request bodies receive Flask's HTTP 413 response.
 
 ## Key Components
 
@@ -32,4 +36,4 @@ bodies receive Flask's HTTP 413 response.
 
 ## Verification
 
-- Run `python -m unittest test_query_validation.py`.
+- Run `python3 -m unittest test_query_validation.py`.
