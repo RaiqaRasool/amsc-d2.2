@@ -4,7 +4,6 @@ import secrets
 import uuid
 from datetime import datetime
 
-import globus_sdk
 from flask import (
     Flask,
     flash,
@@ -17,7 +16,7 @@ from flask import (
 )
 from globus_sdk.exc import GlobusAPIError
 
-from config import TRANSFER_RESOURCE_SERVER, required_env
+from config import required_env
 from globus_service import (
     auth_client,
     globus_file_manager_url,
@@ -41,15 +40,7 @@ app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
 
 def transfer_client():
-    client = transfer_client_from_token_reference(session.get("token_reference"))
-    if client is not None:
-        return client
-
-    access_token = session.get("transfer_access_token")
-    if not access_token:
-        return None
-    authorizer = globus_sdk.AccessTokenAuthorizer(access_token)
-    return globus_sdk.TransferClient(authorizer=authorizer)
+    return transfer_client_from_token_reference(session.get("token_reference"))
 
 
 def child_path(parent_path, name):
@@ -172,14 +163,9 @@ def callback():
     )
     token_response = client.oauth2_exchange_code_for_tokens(code)
     identity_claims = token_response.decode_id_token()
-    transfer_tokens = token_response.by_resource_server[TRANSFER_RESOURCE_SERVER]
     token_reference = store_token_response(token_response)
 
     session["logged_in"] = True
-    session["transfer_access_token"] = transfer_tokens["access_token"]
-    session["transfer_access_token_expires_at"] = transfer_tokens[
-        "expires_at_seconds"
-    ]
     session["token_reference"] = token_reference
     session["globus_identity"] = identity_claims["sub"]
     session["user_identity"] = identity_claims.get(
@@ -313,7 +299,6 @@ def query_mya():
         ),
         transfer_requested=transfer_requested,
         token_reference=session.get("token_reference"),
-        access_token_expires_at=session.get("transfer_access_token_expires_at"),
     )
     flash(f"MYA job queued: {job_id}", "success")
     return redirect(url_for("index"))

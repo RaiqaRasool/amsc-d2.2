@@ -40,9 +40,10 @@ Production deployments must register their deployed callback URI and use HTTPS.
 6. Flask stores that namespace as `token_reference` in the session. Jobs copy
    the reference into their durable job record when they are queued.
 
-The Flask session also retains the current Transfer access token as a fallback
-for browser requests. Background work does not depend on that short-lived
-session token.
+The Flask session contains only the opaque token-storage reference. OAuth
+access and refresh tokens are never written to Flask's browser-side session
+cookie. Web and background requests both load authorization from server-side
+token storage.
 
 ## Scopes and Collection Consent
 
@@ -75,6 +76,10 @@ Flask session and job database.
 The worker and monitor use the namespace to load the stored Transfer refresh
 token and construct a `RefreshTokenAuthorizer`. Refreshed token responses are
 written back to the same SDK-managed storage automatically.
+
+The web service uses the same reference-based client construction for
+collection searches and browsing. There is no browser-session access-token
+fallback.
 
 The Jobs API removes `token_reference` from serialized responses.
 
