@@ -27,9 +27,26 @@ MAX_MYA_OUTPUT_BYTES = positive_int_env(
 )
 MAX_PENDING_JOBS_PER_USER = positive_int_env("MAX_PENDING_JOBS_PER_USER", 10)
 MAX_PENDING_JOBS_GLOBAL = positive_int_env("MAX_PENDING_JOBS_GLOBAL", 500)
+MYA_SUBMISSION_RATE_LIMITS = (
+    (positive_int_env("MYA_SUBMISSIONS_PER_MINUTE", 5), 60),
+    (positive_int_env("MYA_SUBMISSIONS_PER_HOUR", 30), 60 * 60),
+)
+COLLECTION_SEARCH_RATE_LIMITS = (
+    (positive_int_env("COLLECTION_SEARCHES_PER_MINUTE", 20), 60),
+)
+COLLECTION_BROWSE_RATE_LIMITS = (
+    (positive_int_env("COLLECTION_BROWSES_PER_MINUTE", 60), 60),
+)
+LOGIN_RATE_LIMITS = (
+    (positive_int_env("LOGIN_ATTEMPTS_PER_MINUTE", 10), 60),
+)
 JOBS_DB_PATH = os.environ.get(
     "JOBS_DB_PATH",
     os.path.join(INSTANCE_DIR, "mya-transfer-jobs.sqlite3"),
+)
+RATE_LIMIT_DB_PATH = os.environ.get(
+    "RATE_LIMIT_DB_PATH",
+    os.path.join(INSTANCE_DIR, "request-rate-limits.sqlite3"),
 )
 TOKEN_DB_PATH = os.environ.get(
     "TOKEN_DB_PATH",

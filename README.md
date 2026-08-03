@@ -37,6 +37,7 @@ flowchart LR
 The job database and Globus token database are separate:
 
 - `instance/mya-transfer-jobs.sqlite3` stores durable job state.
+- `instance/request-rate-limits.sqlite3` stores short-lived web request events.
 - `instance/globus-tokens.sqlite3` is managed by the Globus SDK and stores the
   refresh-token authorization used by background services.
 
@@ -102,6 +103,7 @@ Optional storage overrides include:
 
 ```text
 JOBS_DB_PATH=/app/instance/mya-transfer-jobs.sqlite3
+RATE_LIMIT_DB_PATH=/app/instance/request-rate-limits.sqlite3
 TOKEN_DB_PATH=/app/instance/globus-tokens.sqlite3
 ```
 
@@ -126,6 +128,21 @@ MAX_PENDING_JOBS_GLOBAL=500
 
 Only jobs in `queued` or `query_running` state count toward these limits.
 Completed queries and Globus transfers do not consume queue capacity.
+
+Optional web rate limits include:
+
+```text
+MYA_SUBMISSIONS_PER_MINUTE=5
+MYA_SUBMISSIONS_PER_HOUR=30
+COLLECTION_SEARCHES_PER_MINUTE=20
+COLLECTION_BROWSES_PER_MINUTE=60
+LOGIN_ATTEMPTS_PER_MINUTE=10
+```
+
+Rate-limit events use a dedicated SQLite database, so limits survive web
+restarts without contending with queue and worker writes. Login limits use the
+direct client address and do not trust proxy forwarding headers until the
+deployment proxy is explicitly configured.
 
 Compose currently sets the worker queue interval to two seconds and the Globus
 monitor interval to fifteen seconds. `UID` and `GID` may also be set for the

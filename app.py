@@ -17,8 +17,12 @@ from flask import (
 from globus_sdk.exc import GlobusAPIError
 
 from config import (
+    COLLECTION_BROWSE_RATE_LIMITS,
+    COLLECTION_SEARCH_RATE_LIMITS,
+    LOGIN_RATE_LIMITS,
     MAX_PENDING_JOBS_GLOBAL,
     MAX_PENDING_JOBS_PER_USER,
+    MYA_SUBMISSION_RATE_LIMITS,
     required_env,
 )
 from csrf import CSRF_SESSION_KEY, csrf_tokens_match, new_csrf_token
@@ -34,6 +38,7 @@ from globus_service import (
 )
 from jobs import QueueCapacityError, create_job, get_job_for_identity, list_jobs
 from query_validation import validate_query_params
+from rate_limits import RateLimitExceeded, record_request
 
 # ponytail: in-memory state store for local dev; use server-side session storage
 # if this runs with multiple processes or restarts between login and callback.
@@ -128,6 +133,18 @@ def parse_pvlist(value):
     return [pv.strip() for pv in value.split(",") if pv.strip()]
 
 
+def rate_limit_response(scope_key, action, limits):
+    try:
+        record_request(scope_key, action, limits)
+    except RateLimitExceeded as error:
+        return (
+            render_template("429.html", retry_after=error.retry_after),
+            429,
+            {"Retry-After": str(error.retry_after)},
+        )
+    return None
+
+
 @app.get("/")
 def index():
     globus_identity = session.get("globus_identity")
@@ -144,6 +161,14 @@ def index():
 
 @app.get("/login")
 def login():
+    limited = rate_limit_response(
+        f"ip:{request.remote_addr or 'unknown'}",
+        "login",
+        LOGIN_RATE_LIMITS,
+    )
+    if limited is not None:
+        return limited
+
     state = secrets.token_urlsafe(32)
     PENDING_OAUTH_STATES.add(state)
 
@@ -200,9 +225,17 @@ def callback():
 
 @app.get("/collections/search")
 def search_collections():
+    globus_identity = session.get("globus_identity")
     client = transfer_client()
-    if client is None:
+    if client is None or not globus_identity:
         return redirect(url_for("login"))
+    limited = rate_limit_response(
+        f"identity:{globus_identity}",
+        "collection_search",
+        COLLECTION_SEARCH_RATE_LIMITS,
+    )
+    if limited is not None:
+        return limited
 
     query = request.args.get("q", "").strip()
     if not query:
@@ -219,6 +252,13 @@ def query_mya():
     globus_identity = session.get("globus_identity")
     if transfer_client() is None or not globus_identity:
         return redirect(url_for("login"))
+    limited = rate_limit_response(
+        f"identity:{globus_identity}",
+        "mya_submission",
+        MYA_SUBMISSION_RATE_LIMITS,
+    )
+    if limited is not None:
+        return limited
 
     query_type = request.form.get("query_type", "mysampler").strip().lower()
     try:
@@ -341,9 +381,17 @@ def query_mya():
 
 @app.get("/collections/<collection_id>/browse")
 def browse_collection(collection_id):
+    globus_identity = session.get("globus_identity")
     client = transfer_client()
-    if client is None:
+    if client is None or not globus_identity:
         return redirect(url_for("login"))
+    limited = rate_limit_response(
+        f"identity:{globus_identity}",
+        "collection_browse",
+        COLLECTION_BROWSE_RATE_LIMITS,
+    )
+    if limited is not None:
+        return limited
 
     path = request.args.get("path", "/").strip() or "/"
     if not path.startswith("/"):
