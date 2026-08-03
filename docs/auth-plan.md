@@ -35,6 +35,8 @@ Production deployments must register their deployed callback URI and use HTTPS.
 3. Globus redirects the browser to `/callback` with an authorization code and
    the original state.
 4. `/callback` validates and consumes the state before exchanging the code.
+   State values are limited to 128 characters and authorization codes to 2,048
+   characters. Invalid callbacks return a generic response without diagnostics.
 5. The complete token response is stored in server-side SDK-managed SQLite
    token storage under a generated namespace.
 6. Flask stores that namespace as `token_reference` in the session. Jobs copy

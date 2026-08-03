@@ -39,6 +39,14 @@ from globus_service import (
 from jobs import QueueCapacityError, create_job, get_job_for_identity, list_jobs
 from query_validation import validate_query_params
 from rate_limits import RateLimitExceeded, record_request
+from web_validation import (
+    validate_collection_id,
+    validate_collection_search,
+    validate_destination_path,
+    validate_oauth_code,
+    validate_oauth_state,
+    validate_transfer_label,
+)
 
 # ponytail: in-memory state store for local dev; use server-side session storage
 # if this runs with multiple processes or restarts between login and callback.
@@ -187,17 +195,22 @@ def login():
 @app.get("/callback")
 def callback():
     returned_state = request.args.get("state")
-    if not returned_state or returned_state not in PENDING_OAUTH_STATES:
-        return (
-            "Invalid OAuth state. "
-            f"returned_state_present={returned_state is not None} "
-            f"known_state={returned_state in PENDING_OAUTH_STATES}"
+    try:
+        validate_oauth_state(returned_state)
+    except ValueError as error:
+        return render_template("400.html", message=str(error)), 400
+    if returned_state not in PENDING_OAUTH_STATES:
+        return render_template(
+            "400.html",
+            message="Invalid or expired OAuth state.",
         ), 400
     PENDING_OAUTH_STATES.remove(returned_state)
 
     code = request.args.get("code")
-    if not code:
-        return "Missing OAuth code.", 400
+    try:
+        validate_oauth_code(code)
+    except ValueError as error:
+        return render_template("400.html", message=str(error)), 400
 
     client = auth_client()
     client.oauth2_start_flow(
@@ -226,8 +239,7 @@ def callback():
 @app.get("/collections/search")
 def search_collections():
     globus_identity = session.get("globus_identity")
-    client = transfer_client()
-    if client is None or not globus_identity:
+    if not globus_identity or not session.get("token_reference"):
         return redirect(url_for("login"))
     limited = rate_limit_response(
         f"identity:{globus_identity}",
@@ -238,9 +250,15 @@ def search_collections():
         return limited
 
     query = request.args.get("q", "").strip()
-    if not query:
+    try:
+        validate_collection_search(query)
+    except ValueError as error:
+        flash(str(error), "error")
         return redirect(url_for("index"))
 
+    client = transfer_client()
+    if client is None:
+        return redirect(url_for("login"))
     results = list(
         client.endpoint_search(filter_fulltext=query, filter_non_functional=False)
     )[:10]
@@ -327,6 +345,7 @@ def query_mya():
     destination_collection_name = session.get("destination_collection_name")
     destination_folder = session.get("destination_path")
     transfer_label_value = request.form.get("transfer_label", "")
+    resolved_transfer_label = None
     if transfer_requested and (
         not destination_collection_id or not destination_folder
     ):
@@ -339,6 +358,17 @@ def query_mya():
         )
         session["post_auth_redirect"] = url_for("index")
         return redirect(url_for("login"))
+    if transfer_requested:
+        try:
+            destination_collection_id = validate_collection_id(
+                destination_collection_id
+            )
+            validate_destination_path(destination_folder)
+            resolved_transfer_label = transfer_label(transfer_label_value)
+            validate_transfer_label(resolved_transfer_label)
+        except ValueError as error:
+            flash(str(error), "error")
+            return redirect(url_for("index"))
 
     job_id = str(uuid.uuid4())
     try:
@@ -357,9 +387,7 @@ def query_mya():
                 destination_collection_name if transfer_requested else None
             ),
             destination_path=destination_folder if transfer_requested else None,
-            transfer_label=(
-                transfer_label(transfer_label_value) if transfer_requested else None
-            ),
+            transfer_label=resolved_transfer_label,
             transfer_requested=transfer_requested,
             token_reference=session.get("token_reference"),
             max_pending_per_user=MAX_PENDING_JOBS_PER_USER,
@@ -382,8 +410,7 @@ def query_mya():
 @app.get("/collections/<collection_id>/browse")
 def browse_collection(collection_id):
     globus_identity = session.get("globus_identity")
-    client = transfer_client()
-    if client is None or not globus_identity:
+    if not globus_identity or not session.get("token_reference"):
         return redirect(url_for("login"))
     limited = rate_limit_response(
         f"identity:{globus_identity}",
@@ -393,10 +420,19 @@ def browse_collection(collection_id):
     if limited is not None:
         return limited
 
-    path = request.args.get("path", "/").strip() or "/"
+    path = request.args.get("path", "/") or "/"
     if not path.startswith("/"):
         path = "/" + path
+    try:
+        collection_id = validate_collection_id(collection_id)
+        validate_destination_path(path)
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("index"))
 
+    client = transfer_client()
+    if client is None:
+        return redirect(url_for("login"))
     browse_error = None
     try:
         entries = list(client.operation_ls(collection_id, path=path))
@@ -428,17 +464,23 @@ def browse_collection(collection_id):
 
 @app.post("/destination/select")
 def select_destination():
-    client = transfer_client()
-    if client is None:
+    if not session.get("globus_identity") or not session.get("token_reference"):
         return redirect(url_for("login"))
 
     collection_id = request.form.get("collection_id", "").strip()
-    path = request.form.get("path", "").strip() or "/"
-    if not collection_id:
-        return "Missing destination collection.", 400
+    path = request.form.get("path", "") or "/"
     if not path.startswith("/"):
         path = "/" + path
+    try:
+        collection_id = validate_collection_id(collection_id)
+        validate_destination_path(path)
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("index"))
 
+    client = transfer_client()
+    if client is None:
+        return redirect(url_for("login"))
     collection = client.get_endpoint(
         collection_id,
         query_params={"fields": "display_name,canonical_name"},

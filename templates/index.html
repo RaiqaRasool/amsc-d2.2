@@ -181,7 +181,7 @@
                     <form action="{{ url_for('search_collections') }}" method="get" class="inline-form">
                       <label>
                         Search Globus destination
-                        <input name="q" required>
+                        <input name="q" maxlength="128" required>
                       </label>
                       <button type="submit">Search destination</button>
                     </form>
@@ -207,7 +207,7 @@
                   </p>
                   <label>
                     Label for Globus Transfer
-                    <input form="query-form" name="transfer_label" value="test transfer">
+                    <input form="query-form" name="transfer_label" maxlength="108" value="test transfer">
                   </label>
                   <div class="actions">
                     <span

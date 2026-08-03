@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Invalid request</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 class="brand">AmSC Globus Data Delivery</h1>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel">
+        <h2>Invalid request</h2>
+        <p>{{ message }}</p>
+        <a class="button" href="{{ url_for('index') }}">Return home</a>
+      </section>
+    </main>
+  </body>
+</html>
