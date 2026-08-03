@@ -434,6 +434,23 @@ def logout():
     return redirect(url_for("index"))
 
 
+@app.errorhandler(500)
+def internal_server_error(error):
+    original_error = getattr(error, "original_exception", None)
+    if original_error is not None:
+        app.logger.error(
+            "Unhandled web request exception.",
+            exc_info=(
+                type(original_error),
+                original_error,
+                original_error.__traceback__,
+            ),
+        )
+    else:
+        app.logger.error("Internal server error: %s", error)
+    return render_template("500.html"), 500
+
+
 if __name__ == "__main__":
     app.run(
         host=os.environ.get("FLASK_RUN_HOST", "127.0.0.1"),
