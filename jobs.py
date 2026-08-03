@@ -5,6 +5,12 @@ from datetime import datetime
 from config import JOBS_DB_PATH
 
 
+class QueueCapacityError(Exception):
+    def __init__(self, scope):
+        super().__init__(scope)
+        self.scope = scope
+
+
 def jobs_db():
     connection = sqlite3.connect(JOBS_DB_PATH)
     connection.row_factory = sqlite3.Row
@@ -94,9 +100,33 @@ def create_job(
     access_token_expires_at=None,
     globus_task_id=None,
     error_message=None,
+    max_pending_per_user=None,
+    max_pending_global=None,
 ):
     now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
     with jobs_db() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        pending_statuses = ("queued", "query_running")
+        if max_pending_per_user is not None:
+            pending_for_user = connection.execute(
+                """
+                SELECT COUNT(*) FROM mya_transfer_jobs
+                WHERE globus_identity = ? AND status IN (?, ?)
+                """,
+                (globus_identity, *pending_statuses),
+            ).fetchone()[0]
+            if pending_for_user >= max_pending_per_user:
+                raise QueueCapacityError("user")
+        if max_pending_global is not None:
+            pending_global = connection.execute(
+                """
+                SELECT COUNT(*) FROM mya_transfer_jobs
+                WHERE status IN (?, ?)
+                """,
+                pending_statuses,
+            ).fetchone()[0]
+            if pending_global >= max_pending_global:
+                raise QueueCapacityError("global")
         connection.execute(
             """
             INSERT INTO mya_transfer_jobs (

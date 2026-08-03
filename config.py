@@ -25,6 +25,8 @@ MAX_MYA_OUTPUT_BYTES = positive_int_env(
     "MAX_MYA_OUTPUT_BYTES",
     1024 * 1024 * 1024,
 )
+MAX_PENDING_JOBS_PER_USER = positive_int_env("MAX_PENDING_JOBS_PER_USER", 10)
+MAX_PENDING_JOBS_GLOBAL = positive_int_env("MAX_PENDING_JOBS_GLOBAL", 500)
 JOBS_DB_PATH = os.environ.get(
     "JOBS_DB_PATH",
     os.path.join(INSTANCE_DIR, "mya-transfer-jobs.sqlite3"),

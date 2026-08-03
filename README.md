@@ -117,6 +117,16 @@ limits. Export files are published only after a complete successful write.
 The timeout does not apply to Globus data movement, which continues
 asynchronously after transfer submission.
 
+Optional queue admission limits include:
+
+```text
+MAX_PENDING_JOBS_PER_USER=10
+MAX_PENDING_JOBS_GLOBAL=500
+```
+
+Only jobs in `queued` or `query_running` state count toward these limits.
+Completed queries and Globus transfers do not consume queue capacity.
+
 Compose currently sets the worker queue interval to two seconds and the Globus
 monitor interval to fifteen seconds. `UID` and `GID` may also be set for the
 container user when required by the host environment.

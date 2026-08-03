@@ -16,7 +16,11 @@ from flask import (
 )
 from globus_sdk.exc import GlobusAPIError
 
-from config import required_env
+from config import (
+    MAX_PENDING_JOBS_GLOBAL,
+    MAX_PENDING_JOBS_PER_USER,
+    required_env,
+)
 from csrf import CSRF_SESSION_KEY, csrf_tokens_match, new_csrf_token
 from globus_service import (
     auth_client,
@@ -28,7 +32,7 @@ from globus_service import (
     transfer_client_from_token_reference,
     transfer_label,
 )
-from jobs import create_job, get_job_for_identity, list_jobs
+from jobs import QueueCapacityError, create_job, get_job_for_identity, list_jobs
 from query_validation import validate_query_params
 
 # ponytail: in-memory state store for local dev; use server-side session storage
@@ -297,27 +301,40 @@ def query_mya():
         return redirect(url_for("login"))
 
     job_id = str(uuid.uuid4())
-    create_job(
-        job_id=job_id,
-        status="queued",
-        query_type=query_type,
-        query_params=query_params,
-        user_identity=session.get("user_identity"),
-        globus_identity=globus_identity,
-        source_collection_id=required_env("SOURCE_COLLECTION_ID"),
-        destination_collection_id=(
-            destination_collection_id if transfer_requested else None
-        ),
-        destination_collection_name=(
-            destination_collection_name if transfer_requested else None
-        ),
-        destination_path=destination_folder if transfer_requested else None,
-        transfer_label=(
-            transfer_label(transfer_label_value) if transfer_requested else None
-        ),
-        transfer_requested=transfer_requested,
-        token_reference=session.get("token_reference"),
-    )
+    try:
+        create_job(
+            job_id=job_id,
+            status="queued",
+            query_type=query_type,
+            query_params=query_params,
+            user_identity=session.get("user_identity"),
+            globus_identity=globus_identity,
+            source_collection_id=required_env("SOURCE_COLLECTION_ID"),
+            destination_collection_id=(
+                destination_collection_id if transfer_requested else None
+            ),
+            destination_collection_name=(
+                destination_collection_name if transfer_requested else None
+            ),
+            destination_path=destination_folder if transfer_requested else None,
+            transfer_label=(
+                transfer_label(transfer_label_value) if transfer_requested else None
+            ),
+            transfer_requested=transfer_requested,
+            token_reference=session.get("token_reference"),
+            max_pending_per_user=MAX_PENDING_JOBS_PER_USER,
+            max_pending_global=MAX_PENDING_JOBS_GLOBAL,
+        )
+    except QueueCapacityError as error:
+        if error.scope == "user":
+            message = (
+                f"You already have {MAX_PENDING_JOBS_PER_USER} MYA jobs pending. "
+                "Wait for one to finish before submitting another."
+            )
+        else:
+            message = "The MYA queue is currently at capacity. Please try again later."
+        flash(message, "error")
+        return redirect(url_for("index"))
     flash(f"MYA job queued: {job_id}", "success")
     return redirect(url_for("index"))
 
