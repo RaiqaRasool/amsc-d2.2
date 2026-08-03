@@ -252,7 +252,8 @@
         const queryTabs = queryForm.querySelectorAll("[data-query-tab]");
         const queryPanels = queryForm.querySelectorAll("[data-query-panel]");
         const queryFields = document.querySelectorAll(
-          "#query-form input, input[form='query-form']"
+          "#query-form input:not([name='csrf_token']), " +
+          "input[form='query-form']:not([name='csrf_token'])"
         );
 
         function activateQueryTab(queryType) {

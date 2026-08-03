@@ -29,6 +29,11 @@ class CsrfTests(unittest.TestCase):
                 with self.subTest(template=template.name):
                     self.assertIn('name="csrf_token"', form)
 
+    def test_query_draft_never_restores_csrf_token(self):
+        template = PROJECT_ROOT.joinpath("templates", "index.html").read_text()
+        self.assertIn("input:not([name='csrf_token'])", template)
+        self.assertIn("input[form='query-form']:not([name='csrf_token'])", template)
+
 
 if __name__ == "__main__":
     unittest.main()

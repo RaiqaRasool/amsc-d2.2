@@ -12,6 +12,8 @@ authenticated user's browser.
 - Every POST request is rejected before its route runs unless its form token
   matches the session token.
 - Logout uses POST and requires the same CSRF validation.
+- Query-draft persistence excludes the CSRF field, so a token saved before
+  login or session rotation cannot replace the newly rendered token.
 - GET requests remain unaffected.
 
 ## Failure Behavior
