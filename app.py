@@ -31,14 +31,23 @@ from globus_service import (
     globus_file_manager_url,
     globus_task_url,
     requested_auth_scopes,
+    revoke_and_delete_token_reference,
     status_class,
     store_token_response,
     transfer_client_from_token_reference,
     transfer_label,
 )
-from jobs import QueueCapacityError, create_job, get_job_for_identity, list_jobs
+from jobs import (
+    QueueCapacityError,
+    TokenReferenceRetiredError,
+    create_job,
+    get_job_for_identity,
+    list_jobs,
+    schedule_token_cleanup,
+)
 from query_validation import validate_query_params
 from rate_limits import RateLimitExceeded, record_request
+from token_cleanup import cleanup_token_reference_if_ready
 from web_validation import (
     validate_collection_id,
     validate_collection_search,
@@ -403,6 +412,9 @@ def query_mya():
             message = "The MYA queue is currently at capacity. Please try again later."
         flash(message, "error")
         return redirect(url_for("index"))
+    except TokenReferenceRetiredError:
+        flash("Sign in again before queueing another transfer.", "error")
+        return redirect(url_for("login"))
     flash(f"MYA job queued: {job_id}", "success")
     return redirect(url_for("index"))
 
@@ -537,7 +549,15 @@ def jobs_table():
 
 @app.post("/logout")
 def logout():
+    token_reference = session.get("token_reference")
+    if token_reference:
+        schedule_token_cleanup(token_reference)
     session.clear()
+    if token_reference:
+        cleanup_token_reference_if_ready(
+            token_reference,
+            revoke_and_delete_token_reference,
+        )
     return redirect(url_for("index"))
 
 

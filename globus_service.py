@@ -31,6 +31,27 @@ def store_token_response(token_response):
     return token_reference
 
 
+def revoke_and_delete_token_reference(token_reference):
+    token_storage = SQLiteTokenStorage(TOKEN_DB_PATH, namespace=token_reference)
+    try:
+        token_data_by_resource_server = (
+            token_storage.get_token_data_by_resource_server()
+        )
+        if not token_data_by_resource_server:
+            return
+        client = auth_client()
+        revoked_tokens = set()
+        for token_data in token_data_by_resource_server.values():
+            for token in (token_data.access_token, token_data.refresh_token):
+                if token and token not in revoked_tokens:
+                    client.oauth2_revoke_token(token)
+                    revoked_tokens.add(token)
+        for resource_server in token_data_by_resource_server:
+            token_storage.remove_token_data(resource_server)
+    finally:
+        token_storage.close()
+
+
 def transfer_client_from_token_reference(token_reference):
     if not token_reference:
         return None

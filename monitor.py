@@ -3,8 +3,13 @@ import time
 
 from globus_sdk.exc import GlobusAPIError
 
-from globus_service import job_transfer_status, transfer_client_from_token_reference
+from globus_service import (
+    job_transfer_status,
+    revoke_and_delete_token_reference,
+    transfer_client_from_token_reference,
+)
 from jobs import list_refreshable_transfer_jobs, update_job
+from token_cleanup import cleanup_scheduled_token_references
 
 
 POLL_INTERVAL_SECONDS = float(os.environ.get("MONITOR_POLL_INTERVAL", "15"))
@@ -59,6 +64,7 @@ def main():
     print("Globus transfer monitor started.", flush=True)
     while True:
         refresh_transfer_jobs()
+        cleanup_scheduled_token_references(revoke_and_delete_token_reference)
         time.sleep(POLL_INTERVAL_SECONDS)
 
 

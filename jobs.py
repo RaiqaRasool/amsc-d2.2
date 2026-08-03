@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config import JOBS_DB_PATH
 
@@ -18,6 +18,16 @@ class QueueCapacityError(Exception):
     def __init__(self, scope):
         super().__init__(scope)
         self.scope = scope
+
+
+class TokenReferenceRetiredError(Exception):
+    pass
+
+
+def utc_timestamp():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+        "+00:00", "Z"
+    )
 
 
 def jobs_db():
@@ -84,6 +94,15 @@ def init_jobs_db():
             ON mya_transfer_jobs (status, updated_at)
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS token_cleanup_requests (
+                token_reference TEXT PRIMARY KEY,
+                requested_at TEXT NOT NULL,
+                completed_at TEXT
+            )
+            """
+        )
 
 
 def job_row(row):
@@ -118,9 +137,19 @@ def create_job(
     max_pending_per_user=None,
     max_pending_global=None,
 ):
-    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    now = utc_timestamp()
     with jobs_db() as connection:
         connection.execute("BEGIN IMMEDIATE")
+        if transfer_requested and token_reference:
+            retired_reference = connection.execute(
+                """
+                SELECT 1 FROM token_cleanup_requests
+                WHERE token_reference = ?
+                """,
+                (token_reference,),
+            ).fetchone()
+            if retired_reference:
+                raise TokenReferenceRetiredError
         pending_statuses = ("queued", "query_running")
         if max_pending_per_user is not None:
             pending_for_user = connection.execute(
@@ -276,8 +305,68 @@ def delete_expired_terminal_job(job_id, cutoff):
     return cursor.rowcount == 1
 
 
+def schedule_token_cleanup(token_reference):
+    now = utc_timestamp()
+    with jobs_db() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO token_cleanup_requests (
+                token_reference, requested_at
+            ) VALUES (?, ?)
+            """,
+            (token_reference, now),
+        )
+
+
+def list_pending_token_cleanups():
+    with jobs_db() as connection:
+        rows = connection.execute(
+            """
+            SELECT token_reference FROM token_cleanup_requests
+            WHERE completed_at IS NULL
+            ORDER BY requested_at
+            """
+        ).fetchall()
+    return [row["token_reference"] for row in rows]
+
+
+def token_reference_has_unfinished_transfers(token_reference):
+    terminal_transfer_statuses = (
+        "query_failed",
+        "transfer_succeeded",
+        "transfer_failed",
+        "transfer_auth_failed",
+    )
+    placeholders = ", ".join("?" for _ in terminal_transfer_statuses)
+    with jobs_db() as connection:
+        row = connection.execute(
+            f"""
+            SELECT 1 FROM mya_transfer_jobs
+            WHERE token_reference = ?
+              AND transfer_requested = 1
+              AND status NOT IN ({placeholders})
+            LIMIT 1
+            """,
+            (token_reference, *terminal_transfer_statuses),
+        ).fetchone()
+    return row is not None
+
+
+def complete_token_cleanup(token_reference):
+    now = utc_timestamp()
+    with jobs_db() as connection:
+        connection.execute(
+            """
+            UPDATE token_cleanup_requests SET completed_at = ?
+            WHERE token_reference = ? AND completed_at IS NULL
+            """,
+            (now, token_reference),
+        )
+
+
 def claim_next_job():
-    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    now = utc_timestamp()
     with jobs_db() as connection:
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
@@ -310,7 +399,7 @@ def update_job(job_id, **fields):
     if not fields:
         return get_job(job_id)
 
-    fields["updated_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    fields["updated_at"] = utc_timestamp()
     assignments = ", ".join(f"{name} = ?" for name in fields)
     values = list(fields.values()) + [job_id]
 

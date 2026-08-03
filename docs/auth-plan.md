@@ -101,8 +101,6 @@ production deployment:
 
 - OAuth state values are held in process memory. They are lost on restart and
   are not shared across multiple web processes.
-- Logout clears the Flask session but does not revoke Globus authorization or
-  delete the corresponding token-storage namespace.
 - Token database access depends on host filesystem permissions rather than a
   dedicated secrets service or encrypted database.
 - Flask's development server and debug mode are not production deployment
