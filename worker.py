@@ -2,12 +2,24 @@ import logging
 import os
 import time
 
+from config import CLEANUP_INTERVAL_SECONDS
 from job_execution import execute_job_transfer, execute_mya_query
 from jobs import claim_next_job, update_job
+from retention import cleanup_expired_jobs
 
 
 POLL_INTERVAL_SECONDS = float(os.environ.get("WORKER_POLL_INTERVAL", "2"))
 LOGGER = logging.getLogger(__name__)
+
+
+def clean_up_old_jobs():
+    try:
+        deleted_jobs = cleanup_expired_jobs()
+    except Exception:
+        LOGGER.exception("Scheduled job retention cleanup failed.")
+        return
+    if deleted_jobs:
+        LOGGER.info("Deleted %s expired jobs and their exports.", deleted_jobs)
 
 
 def process_next_job():
@@ -49,7 +61,11 @@ def process_next_job():
 
 def main():
     print("MYA job worker started.", flush=True)
+    next_cleanup = 0
     while True:
+        if time.monotonic() >= next_cleanup:
+            clean_up_old_jobs()
+            next_cleanup = time.monotonic() + CLEANUP_INTERVAL_SECONDS
         if not process_next_job():
             time.sleep(POLL_INTERVAL_SECONDS)
 

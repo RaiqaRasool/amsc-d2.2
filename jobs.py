@@ -5,6 +5,15 @@ from datetime import datetime
 from config import JOBS_DB_PATH
 
 
+TERMINAL_JOB_STATUSES = (
+    "query_complete",
+    "query_failed",
+    "transfer_succeeded",
+    "transfer_failed",
+    "transfer_auth_failed",
+)
+
+
 class QueueCapacityError(Exception):
     def __init__(self, scope):
         super().__init__(scope)
@@ -67,6 +76,12 @@ def init_jobs_db():
             """
             CREATE INDEX IF NOT EXISTS idx_mya_transfer_jobs_globus_identity
             ON mya_transfer_jobs (globus_identity, created_at DESC)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_mya_transfer_jobs_retention
+            ON mya_transfer_jobs (status, updated_at)
             """
         )
 
@@ -232,6 +247,33 @@ def list_refreshable_transfer_jobs():
             """
         ).fetchall()
     return [job_row(row) for row in rows]
+
+
+def list_expired_terminal_jobs(cutoff):
+    placeholders = ", ".join("?" for _ in TERMINAL_JOB_STATUSES)
+    with jobs_db() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT * FROM mya_transfer_jobs
+            WHERE status IN ({placeholders}) AND updated_at <= ?
+            ORDER BY updated_at
+            """,
+            (*TERMINAL_JOB_STATUSES, cutoff),
+        ).fetchall()
+    return [job_row(row) for row in rows]
+
+
+def delete_expired_terminal_job(job_id, cutoff):
+    placeholders = ", ".join("?" for _ in TERMINAL_JOB_STATUSES)
+    with jobs_db() as connection:
+        cursor = connection.execute(
+            f"""
+            DELETE FROM mya_transfer_jobs
+            WHERE job_id = ? AND status IN ({placeholders}) AND updated_at <= ?
+            """,
+            (job_id, *TERMINAL_JOB_STATUSES, cutoff),
+        )
+    return cursor.rowcount == 1
 
 
 def claim_next_job():

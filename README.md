@@ -119,6 +119,16 @@ limits. Export files are published only after a complete successful write.
 The timeout does not apply to Globus data movement, which continues
 asynchronously after transfer submission.
 
+Optional data-retention settings include:
+
+```text
+JOB_RETENTION_DAYS=30
+CLEANUP_INTERVAL_SECONDS=3600
+```
+
+The worker removes terminal job records and their generated exports after the
+retention period. Active MYA and Globus work is never removed by cleanup.
+
 Optional queue admission limits include:
 
 ```text
