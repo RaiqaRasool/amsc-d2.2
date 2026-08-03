@@ -17,6 +17,7 @@ from flask import (
 from globus_sdk.exc import GlobusAPIError
 
 from config import required_env
+from csrf import CSRF_SESSION_KEY, csrf_tokens_match, new_csrf_token
 from globus_service import (
     auth_client,
     globus_file_manager_url,
@@ -37,6 +38,23 @@ PENDING_OAUTH_STATES = set()
 app = Flask(__name__)
 app.secret_key = required_env("FLASK_SECRET_KEY")
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+
+
+@app.context_processor
+def inject_csrf_token():
+    if CSRF_SESSION_KEY not in session:
+        session[CSRF_SESSION_KEY] = new_csrf_token()
+    return {"csrf_token": session[CSRF_SESSION_KEY]}
+
+
+@app.before_request
+def protect_post_requests():
+    if request.method == "POST" and not csrf_tokens_match(
+        session.get(CSRF_SESSION_KEY),
+        request.form.get(CSRF_SESSION_KEY),
+    ):
+        flash("This form expired or could not be verified. Please try again.", "error")
+        return redirect(url_for("index"))
 
 
 def transfer_client():
@@ -410,7 +428,7 @@ def jobs_table():
     )
 
 
-@app.get("/logout")
+@app.post("/logout")
 def logout():
     session.clear()
     return redirect(url_for("index"))

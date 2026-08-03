@@ -55,6 +55,16 @@ a {
   color: #ffffff;
 }
 
+.topbar-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #ffffff;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .container {
   width: 90%;
   margin: 0 auto;

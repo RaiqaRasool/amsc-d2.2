@@ -10,21 +10,24 @@
       <div class="topbar-inner">
         <h1 class="brand">AmSC Globus Data Delivery</h1>
         {% if logged_in %}
-          <a href="{{ url_for('logout') }}">Logout</a>
+          <form action="{{ url_for('logout') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="topbar-link">Logout</button>
+          </form>
         {% endif %}
       </div>
     </header>
 
     <main class="container">
       <div class="stack">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+          <div class="notice notice-{{ category }}" role="alert">{{ message }}</div>
+        {% endfor %}
+
         {% if logged_in %}
           <section class="panel">
             <span class="status">Logged in with Globus</span>
           </section>
-
-          {% for category, message in get_flashed_messages(with_categories=true) %}
-            <div class="notice notice-{{ category }}" role="alert">{{ message }}</div>
-          {% endfor %}
 
           <section class="panel">
             <h2>Query Maya</h2>
@@ -32,6 +35,7 @@
             <div class="request-stack">
               <section class="subpanel">
                 <form id="query-form" action="{{ url_for('query_mya') }}" method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="query_type" value="mysampler">
                   <div class="query-tabs" role="tablist" aria-label="MYA query type">
                     {% for query_type, query_name in (
@@ -182,6 +186,7 @@
                       <button type="submit">Search destination</button>
                     </form>
                     <form action="{{ url_for('reset_destination') }}" method="post">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <button
                         type="submit"
                         class="button-secondary"
