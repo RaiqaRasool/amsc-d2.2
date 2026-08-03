@@ -42,6 +42,7 @@ COLLECTION_BROWSE_RATE_LIMITS = (
 LOGIN_RATE_LIMITS = (
     (positive_int_env("LOGIN_ATTEMPTS_PER_MINUTE", 10), 60),
 )
+OAUTH_STATE_TTL_SECONDS = positive_int_env("OAUTH_STATE_TTL_SECONDS", 10 * 60)
 JOBS_DB_PATH = os.environ.get(
     "JOBS_DB_PATH",
     os.path.join(INSTANCE_DIR, "mya-transfer-jobs.sqlite3"),
@@ -49,6 +50,10 @@ JOBS_DB_PATH = os.environ.get(
 RATE_LIMIT_DB_PATH = os.environ.get(
     "RATE_LIMIT_DB_PATH",
     os.path.join(INSTANCE_DIR, "request-rate-limits.sqlite3"),
+)
+OAUTH_STATE_DB_PATH = os.environ.get(
+    "OAUTH_STATE_DB_PATH",
+    os.path.join(INSTANCE_DIR, "oauth-states.sqlite3"),
 )
 TOKEN_DB_PATH = os.environ.get(
     "TOKEN_DB_PATH",

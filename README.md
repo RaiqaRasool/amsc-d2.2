@@ -38,6 +38,7 @@ The job database and Globus token database are separate:
 
 - `instance/mya-transfer-jobs.sqlite3` stores durable job state.
 - `instance/request-rate-limits.sqlite3` stores short-lived web request events.
+- `instance/oauth-states.sqlite3` stores short-lived OAuth state digests.
 - `instance/globus-tokens.sqlite3` is managed by the Globus SDK and stores the
   refresh-token authorization used by background services.
 
@@ -104,7 +105,15 @@ Optional storage overrides include:
 ```text
 JOBS_DB_PATH=/app/instance/mya-transfer-jobs.sqlite3
 RATE_LIMIT_DB_PATH=/app/instance/request-rate-limits.sqlite3
+OAUTH_STATE_DB_PATH=/app/instance/oauth-states.sqlite3
 TOKEN_DB_PATH=/app/instance/globus-tokens.sqlite3
+```
+
+OAuth state values expire after ten minutes by default. Override this only when
+the identity-provider round trip consistently requires more time:
+
+```text
+OAUTH_STATE_TTL_SECONDS=600
 ```
 
 Optional worker safety limits include:

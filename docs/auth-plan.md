@@ -36,7 +36,9 @@ Production deployments must register their deployed callback URI and use HTTPS.
    the original state.
 4. `/callback` validates and consumes the state before exchanging the code.
    State values are limited to 128 characters and authorization codes to 2,048
-   characters. Invalid callbacks return a generic response without diagnostics.
+   characters. A state must match the initiating signed browser session and a
+   persistent, unexpired, one-time server record. Invalid callbacks return a
+   generic response without diagnostics.
 5. The complete token response is stored in server-side SDK-managed SQLite
    token storage under a generated namespace.
 6. Flask stores that namespace as `token_reference` in the session. Jobs copy
@@ -99,8 +101,6 @@ No background service imports Flask session state.
 The following are acceptable for local development but require hardening before
 production deployment:
 
-- OAuth state values are held in process memory. They are lost on restart and
-  are not shared across multiple web processes.
 - Token database access depends on host filesystem permissions rather than a
   dedicated secrets service or encrypted database.
 - Flask's development server and debug mode are not production deployment

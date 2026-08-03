@@ -45,6 +45,7 @@ from jobs import (
     list_jobs,
     schedule_token_cleanup,
 )
+from oauth_states import consume_oauth_state, store_oauth_state
 from query_validation import validate_query_params
 from rate_limits import RateLimitExceeded, record_request
 from token_cleanup import cleanup_token_reference_if_ready
@@ -57,9 +58,8 @@ from web_validation import (
     validate_transfer_label,
 )
 
-# ponytail: in-memory state store for local dev; use server-side session storage
-# if this runs with multiple processes or restarts between login and callback.
-PENDING_OAUTH_STATES = set()
+OAUTH_SESSION_STATES_KEY = "pending_oauth_states"
+MAX_SESSION_OAUTH_STATES = 5
 
 app = Flask(__name__)
 app.secret_key = required_env("FLASK_SECRET_KEY")
@@ -187,7 +187,11 @@ def login():
         return limited
 
     state = secrets.token_urlsafe(32)
-    PENDING_OAUTH_STATES.add(state)
+    store_oauth_state(state)
+    pending_states = session.get(OAUTH_SESSION_STATES_KEY, [])
+    session[OAUTH_SESSION_STATES_KEY] = (pending_states + [state])[
+        -MAX_SESSION_OAUTH_STATES:
+    ]
 
     client = auth_client()
     client.oauth2_start_flow(
@@ -208,12 +212,26 @@ def callback():
         validate_oauth_state(returned_state)
     except ValueError as error:
         return render_template("400.html", message=str(error)), 400
-    if returned_state not in PENDING_OAUTH_STATES:
+    pending_states = session.get(OAUTH_SESSION_STATES_KEY, [])
+    session_state_matches = any(
+        secrets.compare_digest(returned_state, pending_state)
+        for pending_state in pending_states
+    )
+    if not session_state_matches:
         return render_template(
             "400.html",
             message="Invalid or expired OAuth state.",
         ), 400
-    PENDING_OAUTH_STATES.remove(returned_state)
+    session[OAUTH_SESSION_STATES_KEY] = [
+        pending_state
+        for pending_state in pending_states
+        if not secrets.compare_digest(returned_state, pending_state)
+    ]
+    if not consume_oauth_state(returned_state):
+        return render_template(
+            "400.html",
+            message="Invalid or expired OAuth state.",
+        ), 400
 
     code = request.args.get("code")
     try:
