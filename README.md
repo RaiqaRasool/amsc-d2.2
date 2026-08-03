@@ -105,6 +105,18 @@ JOBS_DB_PATH=/app/instance/mya-transfer-jobs.sqlite3
 TOKEN_DB_PATH=/app/instance/globus-tokens.sqlite3
 ```
 
+Optional worker safety limits include:
+
+```text
+WORKER_QUERY_TIMEOUT_SECONDS=3600
+MAX_MYA_OUTPUT_BYTES=1073741824
+```
+
+The worker terminates MYA retrieval and local export creation that exceed these
+limits. Export files are published only after a complete successful write.
+The timeout does not apply to Globus data movement, which continues
+asynchronously after transfer submission.
+
 Compose currently sets the worker queue interval to two seconds and the Globus
 monitor interval to fifteen seconds. `UID` and `GID` may also be set for the
 container user when required by the host environment.

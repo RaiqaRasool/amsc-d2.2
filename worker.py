@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -6,6 +7,7 @@ from jobs import claim_next_job, update_job
 
 
 POLL_INTERVAL_SECONDS = float(os.environ.get("WORKER_POLL_INTERVAL", "2"))
+LOGGER = logging.getLogger(__name__)
 
 
 def process_next_job():
@@ -15,11 +17,12 @@ def process_next_job():
 
     try:
         completed_job = execute_mya_query(job)
-    except Exception as error:
+    except Exception:
+        LOGGER.exception("Worker failed while processing job %s.", job["job_id"])
         completed_job = update_job(
             job["job_id"],
             status="query_failed",
-            error_message=f"Worker failed: {error}",
+            error_message="The MYA worker failed unexpectedly. Contact support.",
         )
 
     if (
@@ -28,11 +31,12 @@ def process_next_job():
     ):
         try:
             completed_job = execute_job_transfer(completed_job)
-        except Exception as error:
+        except Exception:
+            LOGGER.exception("Worker failed while transferring job %s.", job["job_id"])
             completed_job = update_job(
                 job["job_id"],
                 status="transfer_failed",
-                error_message=f"Worker transfer failed: {error}",
+                error_message="The transfer worker failed unexpectedly. Contact support.",
             )
 
     print(

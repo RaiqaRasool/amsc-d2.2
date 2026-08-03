@@ -3,45 +3,80 @@ import os
 import posixpath
 import uuid
 
-from config import MYA_OUTPUT_DIR, required_env
+from config import (
+    MAX_MYA_OUTPUT_BYTES,
+    MYA_OUTPUT_DIR,
+    WORKER_QUERY_TIMEOUT_SECONDS,
+    required_env,
+)
 from globus_service import (
     submit_transfer_for_job,
     transfer_client_from_token_reference,
 )
 from jobs import get_job, update_job
 from mya_query import run_mya_query
+from worker_limits import LimitedTextWriter, run_with_timeout
+
+
+def run_and_export_mya_query(job, temporary_path):
+    data = run_mya_query(job["query_type"], job["query_params"])
+    extension = "json" if job["query_type"] in ("point", "channel") else "csv"
+    with open(temporary_path, "w", encoding="utf-8", newline="") as output_file:
+        limited_output = LimitedTextWriter(output_file, MAX_MYA_OUTPUT_BYTES)
+        if extension == "json":
+            json.dump(data, limited_output, indent=2, default=str)
+        else:
+            data.to_csv(limited_output)
+    return len(data) if hasattr(data, "__len__") else 1
 
 
 def execute_mya_query(job):
-    try:
-        data = run_mya_query(job["query_type"], job["query_params"])
-        extension = "json" if job["query_type"] in ("point", "channel") else "csv"
-        filename = f"mya-{uuid.uuid4()}.{extension}"
-        output_path = os.path.join(MYA_OUTPUT_DIR, filename)
-        source_path = posixpath.join(
-            required_env("SOURCE_DIRECTORY").rstrip("/") or "/",
-            filename,
-        )
-        os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
-        if extension == "json":
-            with open(output_path, "w") as output_file:
-                json.dump(data, output_file, indent=2, default=str)
-        else:
-            data.to_csv(output_path)
-    except Exception as error:
+    extension = "json" if job["query_type"] in ("point", "channel") else "csv"
+    filename = f"mya-{uuid.uuid4()}.{extension}"
+    output_path = os.path.join(MYA_OUTPUT_DIR, filename)
+    temporary_path = output_path + ".part"
+    source_path = posixpath.join(
+        required_env("SOURCE_DIRECTORY").rstrip("/") or "/",
+        filename,
+    )
+    os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
+
+    result, row_count = run_with_timeout(
+        run_and_export_mya_query,
+        (job, temporary_path),
+        WORKER_QUERY_TIMEOUT_SECONDS,
+    )
+    if result != "complete":
+        try:
+            os.remove(temporary_path)
+        except FileNotFoundError:
+            pass
+        error_messages = {
+            "timeout": "MYA query exceeded the execution time limit.",
+            "output_limit": "MYA query output exceeded the export size limit.",
+            "failed": "MYA query failed. Check the query values or contact support.",
+        }
         return update_job(
             job["job_id"],
             status="query_failed",
-            error_message=f"MYA query failed: {error}",
+            error_message=error_messages[result],
         )
 
+    try:
+        os.replace(temporary_path, output_path)
+    except Exception:
+        try:
+            os.remove(temporary_path)
+        except FileNotFoundError:
+            pass
+        raise
     completed_job = update_job(
         job["job_id"],
         source_path=source_path,
         status="query_complete",
         error_message=None,
     )
-    completed_job["row_count"] = len(data) if hasattr(data, "__len__") else 1
+    completed_job["row_count"] = row_count
     return completed_job
 
 
