@@ -25,4 +25,4 @@ page with debug mode disabled before deployment.
 
 ## Verification
 
-- Run `python3 -m unittest test_web_error_handling.py`.
+- Run `python3 -m unittest discover -s tests -p 'test_web_error_handling.py'`.

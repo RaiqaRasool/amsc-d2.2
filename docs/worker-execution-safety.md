@@ -36,4 +36,4 @@ worker failures follow the same log-versus-user-message boundary.
 
 ## Verification
 
-- Run `python3 -m unittest test_worker_limits.py`.
+- Run `python3 -m unittest discover -s tests -p 'test_worker_limits.py'`.

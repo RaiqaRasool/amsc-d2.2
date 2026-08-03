@@ -27,4 +27,4 @@ friendly error. The requested action is not performed.
 
 ## Verification
 
-- Run `python3 -m unittest test_csrf.py`.
+- Run `python3 -m unittest discover -s tests -p 'test_csrf.py'`.

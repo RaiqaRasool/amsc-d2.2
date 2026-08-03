@@ -36,4 +36,4 @@ Oversized request bodies receive Flask's HTTP 413 response.
 
 ## Verification
 
-- Run `python3 -m unittest test_query_validation.py`.
+- Run `python3 -m unittest discover -s tests -p 'test_query_validation.py'`.
