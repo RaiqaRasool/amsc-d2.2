@@ -91,6 +91,9 @@ GLOBUS_REDIRECT_URI=http://localhost:5000/callback
 SOURCE_COLLECTION_ID=<source-collection-id>
 SOURCE_DIRECTORY=/directory/as-seen-by-globus
 MYA_EXPORT_HOST_DIR=/host/folder/exposed-by-globus
+MYQUERY_PROTOCOL=http
+MYQUERY_SERVER=myquery:8080
+MYA_DEPLOYMENT=docker
 ```
 
 `MYA_EXPORT_HOST_DIR` is mounted at `/mya-output` in the web and worker
@@ -99,6 +102,11 @@ containers. If it is omitted, Compose uses `./mya-output`.
 `SOURCE_DIRECTORY` is the same host folder as viewed from the configured source
 Globus collection. It can differ from `MYA_EXPORT_HOST_DIR` because Docker and
 Globus may see the shared directory through different paths.
+
+`MYQUERY_PROTOCOL`, `MYQUERY_SERVER`, and `MYA_DEPLOYMENT` select one MYA
+backend for every query type. The sandbox uses the `docker` deployment exposed
+by its MyQuery service. These values are application configuration and cannot
+be overridden by an individual submitted job.
 
 Optional storage overrides include:
 

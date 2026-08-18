@@ -12,6 +12,15 @@ from jlab_archiver_client import (
     Point,
     PointQuery,
 )
+from jlab_archiver_client.config import config as archiver_config
+
+from config import MYA_DEPLOYMENT, MYQUERY_PROTOCOL, MYQUERY_SERVER
+
+
+archiver_config.set(
+    myquery_server=MYQUERY_SERVER,
+    protocol=MYQUERY_PROTOCOL,
+)
 
 
 VALID_QUERY_TYPES = {"mysampler", "interval", "mystats", "point", "channel"}
@@ -39,6 +48,7 @@ def run_mysampler(start: datetime, interval: int, num_samples: int, pvlist: list
         interval=interval,
         num_samples=num_samples,
         pvlist=pvlist,
+        deployment=MYA_DEPLOYMENT,
     )
     sampler = MySampler(query)
     sampler.run()
@@ -54,7 +64,6 @@ def run_interval(
     prior_point=True,
     pvlist=None,
     channel=None,
-    deployment="docker",
 ):
     begin = datetime.fromisoformat(begin) if isinstance(begin, str) else begin
     end = datetime.fromisoformat(end) if isinstance(end, str) else end
@@ -64,7 +73,7 @@ def run_interval(
             begin=begin,
             end=end,
             prior_point=prior_point,
-            deployment=deployment,
+            deployment=MYA_DEPLOYMENT,
         )
         data = Interval.run_parallel(query)
     elif channel:
@@ -73,7 +82,7 @@ def run_interval(
             begin=begin,
             end=end,
             prior_point=prior_point,
-            deployment=deployment,
+            deployment=MYA_DEPLOYMENT,
         )
         interval_query = Interval(query)
         interval_query.run()
@@ -86,7 +95,7 @@ def run_interval(
     return data
 
 
-def run_mystats(start, end, num_bins, pvlist, deployment="docker"):
+def run_mystats(start, end, num_bins, pvlist):
     start = datetime.fromisoformat(start) if isinstance(start, str) else start
     end = datetime.fromisoformat(end) if isinstance(end, str) else end
     query = MyStatsQuery(
@@ -94,7 +103,7 @@ def run_mystats(start, end, num_bins, pvlist, deployment="docker"):
         end=end,
         num_bins=num_bins,
         pvlist=pvlist,
-        deployment=deployment,
+        deployment=MYA_DEPLOYMENT,
     )
     stats = MyStats(query)
     stats.run()
@@ -103,9 +112,9 @@ def run_mystats(start, end, num_bins, pvlist, deployment="docker"):
     return stats.data
 
 
-def run_point(channel, time, deployment="docker"):
+def run_point(channel, time):
     time = datetime.fromisoformat(time) if isinstance(time, str) else time
-    query = PointQuery(channel=channel, time=time, deployment=deployment)
+    query = PointQuery(channel=channel, time=time, deployment=MYA_DEPLOYMENT)
     point = Point(query)
     point.run()
     if point.data is None:
@@ -113,8 +122,8 @@ def run_point(channel, time, deployment="docker"):
     return point.data
 
 
-def run_channel(pattern, deployment="docker"):
-    query = ChannelQuery(pattern=pattern, deployment=deployment)
+def run_channel(pattern):
+    query = ChannelQuery(pattern=pattern, deployment=MYA_DEPLOYMENT)
     channel = Channel(query)
     channel.run()
     return channel.data if channel.data is not None else []
