@@ -5,13 +5,16 @@ generated files through Globus.
 
 ## Architecture
 
-Docker Compose runs three persistent services:
+Docker Compose runs three persistent application services and includes the
+containerized MYA/MyQuery sandbox from `../jlab_archiver_client/compose.yml`:
 
 - **web** handles Globus OAuth, destination collection browsing, query forms,
   job creation, and the Jobs dashboard. It queues work and returns immediately.
 - **worker** atomically claims one queued job at a time, runs the requested MYA
   query, writes the export, and submits a Globus transfer when requested.
 - **monitor** checks submitted Globus tasks and records their latest statuses.
+- **myquery** provides the HTTP archive-query service used by the worker.
+- **mya** provides the sandbox archive database and bundled dummy channels.
 
 ```mermaid
 flowchart LR
@@ -177,11 +180,37 @@ container user when required by the host environment.
 
 ## Run With Docker
 
+The sandbox Compose configuration expects the complete
+`jlab_archiver_client` repository—not only its Python package—to be cloned as a
+sibling of `globus-web-prototype`:
+
+```text
+parent-directory/
+├── globus-web-prototype/
+└── jlab_archiver_client/
+```
+
+From `globus-web-prototype`, clone the required sibling repository with:
+
+```bash
+cd ..
+git clone https://github.com/JeffersonLab/jlab_archiver_client.git
+cd globus-web-prototype
+```
+
+The sibling repository supplies the included `compose.yml`, MyQuery
+configuration, dummy channel SQL, and prebuilt MYA/MyQuery image definitions.
+
 Build and start the web app, worker, and monitor:
 
 ```bash
 docker compose up --build
 ```
+
+This command also starts the included MYA and MyQuery sandbox services. The
+worker waits for MyQuery's health check before it begins processing jobs. The
+included file is loaded from the sibling `jlab_archiver_client` clone, so that
+repository must remain at the documented relative path.
 
 For later runs when dependencies and the Dockerfile have not changed:
 

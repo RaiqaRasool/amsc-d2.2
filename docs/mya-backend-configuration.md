@@ -8,6 +8,10 @@ without changing query code.
 
 ## Expected Behavior
 
+- The application Compose file includes the upstream
+  `jlab_archiver_client/compose.yml` sandbox without duplicating its service
+  definitions.
+- The worker starts only after the included MyQuery health check passes.
 - `MYQUERY_PROTOCOL` and `MYQUERY_SERVER` configure the
   `jlab_archiver_client` endpoint when the query module loads.
 - `MYA_DEPLOYMENT` is passed to MySampler, Interval, MyStats, Point, and Channel
@@ -26,8 +30,10 @@ without changing query code.
 
 - `config.py`: environment-backed MYA connection settings
 - `mya_query.py`: client initialization and query construction
+- `docker-compose.yml`: upstream sandbox inclusion and worker readiness
 - `.env.example`: sandbox-oriented example values
 
 ## Verification
 
 - `python3 -m unittest tests.test_mya_query_config`
+- `docker compose config --quiet`
