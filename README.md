@@ -45,9 +45,11 @@ The job database and Globus token database are separate:
 - `instance/globus-tokens.sqlite3` is managed by the Globus SDK and stores the
   refresh-token authorization used by background services.
 
-The project directory is mounted into every container, so the three services
-see the same `instance/` databases. The worker and web service also share the
-MYA export directory.
+During development, the project directory is mounted into every application
+container, so the three services see the same `instance/` databases. The
+production override instead uses a shared `app-instance` volume and runs the
+source code copied into the image. The worker and web service also share the
+MYA export directory in both environments.
 
 ## Job Flow
 
@@ -175,8 +177,9 @@ direct client address and do not trust proxy forwarding headers until the
 deployment proxy is explicitly configured.
 
 Compose currently sets the worker queue interval to two seconds and the Globus
-monitor interval to fifteen seconds. `UID` and `GID` may also be set for the
-container user when required by the host environment.
+monitor interval to fifteen seconds. Application containers use UID/GID
+`10001` by default; `UID` and `GID` may be set when development bind mounts
+require the host user's numeric IDs.
 
 ## Run With Docker
 
@@ -217,6 +220,22 @@ For later runs when dependencies and the Dockerfile have not changed:
 ```bash
 docker compose up
 ```
+
+For a production-style public runtime that continues to use the sample MYA and
+MyQuery services, build and start with:
+
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.production.yml \
+  up -d --build
+```
+
+The production override runs Gunicorn with Flask debug mode disabled, uses the
+application code copied into the image, shares persistent application state,
+and removes the host port publications for MYA and MyQuery. Only the web port
+remains published. The host directory configured by `MYA_EXPORT_HOST_DIR` must
+be writable by UID/GID `10001`.
 
 The web app is available at `http://localhost:5000`. Register this redirect URI
 for the Globus confidential client:

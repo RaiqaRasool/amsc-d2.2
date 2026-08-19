@@ -4,7 +4,7 @@ include:
 services:
   web:
     build: .
-    user: "${UID}:${GID}"
+    user: "${UID:-10001}:${GID:-10001}"
     env_file:
       - .env
     environment:
@@ -16,11 +16,11 @@ services:
     volumes:
       - .:/app
       - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python app.py"
+    command: python app.py
 
   worker:
     build: .
-    user: "${UID}:${GID}"
+    user: "${UID:-10001}:${GID:-10001}"
     depends_on:
       myquery:
         condition: service_healthy
@@ -31,15 +31,15 @@ services:
     volumes:
       - .:/app
       - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python worker.py"
+    command: python worker.py
 
   monitor:
     build: .
-    user: "${UID}:${GID}"
+    user: "${UID:-10001}:${GID:-10001}"
     env_file:
       - .env
     environment:
       MONITOR_POLL_INTERVAL: "15"
     volumes:
       - .:/app
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python monitor.py"
+    command: python monitor.py

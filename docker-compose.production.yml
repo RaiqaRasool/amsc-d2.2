@@ -1,0 +1,36 @@
+services:
+  web:
+    user: "10001:10001"
+    environment:
+      FLASK_DEBUG: "0"
+    volumes: !override
+      - app-instance:/app/instance
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+    command: gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 4 app:app
+    restart: unless-stopped
+
+  worker:
+    user: "10001:10001"
+    volumes: !override
+      - app-instance:/app/instance
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+    command: python worker.py
+    restart: unless-stopped
+
+  monitor:
+    user: "10001:10001"
+    volumes: !override
+      - app-instance:/app/instance
+    command: python monitor.py
+    restart: unless-stopped
+
+  mya:
+    ports: !reset []
+    restart: unless-stopped
+
+  myquery:
+    ports: !reset []
+    restart: unless-stopped
+
+volumes:
+  app-instance:
