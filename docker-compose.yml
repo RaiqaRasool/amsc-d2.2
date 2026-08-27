@@ -1,45 +1,72 @@
-include:
-  - ../jlab_archiver_client/compose.yml
-
 services:
   web:
     build: .
-    user: "${UID:-10001}:${GID:-10001}"
-    env_file:
-      - .env
+    userns_mode: "keep-id:uid=10001,gid=10001"
+    env_file: [.env]
     environment:
       FLASK_RUN_HOST: 0.0.0.0
       FLASK_RUN_PORT: 5000
       FLASK_DEBUG: "1"
+      MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     volumes:
-      - .:/app
-      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+      - .:/app:z
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:z
     command: python app.py
 
   worker:
     build: .
-    user: "${UID:-10001}:${GID:-10001}"
-    depends_on:
-      myquery:
-        condition: service_healthy
-    env_file:
-      - .env
+    userns_mode: "keep-id:uid=10001,gid=10001"
+    env_file: [.env]
     environment:
       WORKER_POLL_INTERVAL: "2"
+      MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
     volumes:
-      - .:/app
-      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+      - .:/app:z
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:z
     command: python worker.py
 
   monitor:
     build: .
-    user: "${UID:-10001}:${GID:-10001}"
-    env_file:
-      - .env
+    userns_mode: "keep-id:uid=10001,gid=10001"
+    env_file: [.env]
     environment:
       MONITOR_POLL_INTERVAL: "15"
+      MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
     volumes:
-      - .:/app
+      - .:/app:z
     command: python monitor.py
+
+  mya:
+    image: jeffersonlab/mycontainer:2.0.0
+    hostname: mya
+    profiles: [demo]
+    volumes:
+      - ./docker/demo-archive/mya/100_channel.sql:/docker-entrypoint-initdb.d/100_channel.sql:ro,z
+      - ./docker/demo-archive/mya/101_channel.sql:/docker-entrypoint-initdb.d/101_channel.sql:ro,z
+      - ./docker/demo-archive/mya/102_channel.sql:/docker-entrypoint-initdb.d/102_channel.sql:ro,z
+    environment:
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+    healthcheck:
+      test: mysqladmin ping -h localhost -u root -ppassword
+      interval: 5s
+      timeout: 10s
+      retries: 12
+
+  myquery:
+    image: jeffersonlab/myquery:6.3.2
+    hostname: myquery
+    profiles: [demo]
+    volumes:
+      - ./docker/demo-archive/myquery/context.xml:/usr/local/tomcat/conf/context.xml:ro,z
+      - ./docker/demo-archive/myquery/deployment.properties:/usr/local/tomcat/lib/deployment.properties:ro,z
+    depends_on:
+      mya:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail 'http://localhost:8080/myquery/channel?q=channel10%25&l=&o=&m=docker'
+      interval: 5s
+      timeout: 10s
+      retries: 12

@@ -1,35 +1,75 @@
 services:
   web:
-    user: "10001:10001"
+    build: .
+    userns_mode: "keep-id:uid=10001,gid=10001"
+    env_file: [.env]
     environment:
       FLASK_DEBUG: "0"
-    volumes: !override
+      MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
       - app-instance:/app/instance
-      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:z
     command: gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 4 app:app
     restart: unless-stopped
 
   worker:
-    user: "10001:10001"
-    volumes: !override
+    build: .
+    userns_mode: "keep-id:uid=10001,gid=10001"
+    env_file: [.env]
+    environment:
+      MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
+    volumes:
       - app-instance:/app/instance
-      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:Z
+      - ${MYA_EXPORT_HOST_DIR:-./mya-output}:/mya-output:z
     command: python worker.py
     restart: unless-stopped
 
   monitor:
-    user: "10001:10001"
-    volumes: !override
+    build: .
+    userns_mode: "keep-id:uid=10001,gid=10001"
+    env_file: [.env]
+    environment:
+      MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
+    volumes:
       - app-instance:/app/instance
     command: python monitor.py
     restart: unless-stopped
 
   mya:
-    ports: !reset []
+    image: jeffersonlab/mycontainer:2.0.0
+    hostname: mya
+    profiles: [demo]
+    volumes:
+      - ./docker/demo-archive/mya/100_channel.sql:/docker-entrypoint-initdb.d/100_channel.sql:ro,z
+      - ./docker/demo-archive/mya/101_channel.sql:/docker-entrypoint-initdb.d/101_channel.sql:ro,z
+      - ./docker/demo-archive/mya/102_channel.sql:/docker-entrypoint-initdb.d/102_channel.sql:ro,z
+    environment:
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+    healthcheck:
+      test: mysqladmin ping -h localhost -u root -ppassword
+      interval: 5s
+      timeout: 10s
+      retries: 12
     restart: unless-stopped
 
   myquery:
-    ports: !reset []
+    image: jeffersonlab/myquery:6.3.2
+    hostname: myquery
+    profiles: [demo]
+    volumes:
+      - ./docker/demo-archive/myquery/context.xml:/usr/local/tomcat/conf/context.xml:ro,z
+      - ./docker/demo-archive/myquery/deployment.properties:/usr/local/tomcat/lib/deployment.properties:ro,z
+    depends_on:
+      mya:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail 'http://localhost:8080/myquery/channel?q=channel10%25&l=&o=&m=docker'
+      interval: 5s
+      timeout: 10s
+      retries: 12
     restart: unless-stopped
 
 volumes:

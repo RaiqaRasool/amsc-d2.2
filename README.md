@@ -181,61 +181,45 @@ monitor interval to fifteen seconds. Application containers use UID/GID
 `10001` by default; `UID` and `GID` may be set when development bind mounts
 require the host user's numeric IDs.
 
-## Run With Docker
+## Run With Compose
 
-The sandbox Compose configuration expects the complete
-`jlab_archiver_client` repository—not only its Python package—to be cloned as a
-sibling of `globus-web-prototype`:
-
-```text
-parent-directory/
-├── globus-web-prototype/
-└── jlab_archiver_client/
-```
-
-From `globus-web-prototype`, clone the required sibling repository with:
-
-```bash
-cd ..
-git clone https://github.com/JeffersonLab/jlab_archiver_client.git
-cd globus-web-prototype
-```
-
-The sibling repository supplies the included `compose.yml`, MyQuery
-configuration, dummy channel SQL, and prebuilt MYA/MyQuery image definitions.
+The repository contains complete, independent development and production
+Compose files. Demo MYA SQL and MyQuery configuration are kept in
+`docker/demo-archive/`; no sibling repository is required.
 
 Build and start the web app, worker, and monitor:
 
 ```bash
-docker compose up --build
+podman compose --profile demo up --build
 ```
 
-This command also starts the included MYA and MyQuery sandbox services. The
-worker waits for MyQuery's health check before it begins processing jobs. The
-included file is loaded from the sibling `jlab_archiver_client` clone, so that
-repository must remain at the documented relative path.
+The `demo` profile starts MYA and MyQuery. Set `MYQUERY_SERVER=myquery:8080` in
+`.env` when using it. Without the profile, `MYQUERY_SERVER` must identify an
+external MyQuery endpoint; Compose fails immediately if it is unset.
 
 For later runs when dependencies and the Dockerfile have not changed:
 
 ```bash
-docker compose up
+podman compose --profile demo up
 ```
 
 For a production-style public runtime that continues to use the sample MYA and
 MyQuery services, build and start with:
 
 ```bash
-docker compose \
-  -f docker-compose.yml \
+podman compose \
   -f docker-compose.production.yml \
+  --profile demo \
   up -d --build
 ```
 
-The production override runs Gunicorn with Flask debug mode disabled, uses the
-application code copied into the image, shares persistent application state,
-and removes the host port publications for MYA and MyQuery. Only the web port
-remains published. The host directory configured by `MYA_EXPORT_HOST_DIR` must
-be writable by UID/GID `10001`.
+The standalone production file runs Gunicorn with Flask debug mode disabled,
+uses image-baked application code, and shares persistent application state.
+Only the web port is published, on `127.0.0.1:5000` for a host Nginx reverse
+proxy. MYA and MyQuery remain internal. Application services use Podman's
+`keep-id` user namespace, and shared bind mounts use the SELinux `z` label. The
+host directory configured by `MYA_EXPORT_HOST_DIR` must be writable by the user
+running Podman.
 
 The web app is available at `http://localhost:5000`. Register this redirect URI
 for the Globus confidential client:
@@ -247,7 +231,7 @@ http://localhost:5000/callback
 Stop the services with `Ctrl+C`, or run this from another terminal:
 
 ```bash
-docker compose down
+podman compose --profile demo down
 ```
 
 ## Source Layout
