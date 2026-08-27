@@ -62,6 +62,12 @@ OAUTH_SESSION_STATES_KEY = "pending_oauth_states"
 MAX_SESSION_OAUTH_STATES = 5
 
 app = Flask(__name__)
+app.config.update(
+    SESSION_COOKIE_NAME="mya_amsc_session",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
+)
 app.secret_key = required_env("FLASK_SECRET_KEY")
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 

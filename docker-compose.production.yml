@@ -4,6 +4,7 @@ services:
     userns_mode: "keep-id:uid=10001,gid=10001"
     env_file: [.env]
     environment:
+      FLASK_ENV: "production"
       FLASK_DEBUG: "0"
       MYQUERY_SERVER: "${MYQUERY_SERVER:?Set MYQUERY_SERVER in .env}"
     ports:
