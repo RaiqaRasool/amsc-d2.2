@@ -9,6 +9,14 @@ class OutputLimitExceeded(Exception):
     pass
 
 
+MAX_ERROR_MESSAGE_LENGTH = 500
+
+
+def bounded_error_message(error):
+    message = " ".join(str(error).split())
+    return message[:MAX_ERROR_MESSAGE_LENGTH]
+
+
 class LimitedTextWriter:
     def __init__(self, output_file, maximum_bytes):
         self.output_file = output_file
@@ -35,9 +43,9 @@ def _run_and_report(result_queue, ready, target, args):
         result_queue.put(("complete", target(*args)))
     except OutputLimitExceeded:
         result_queue.put(("output_limit", None))
-    except Exception:
+    except Exception as error:
         logging.exception("Background MYA execution failed.")
-        result_queue.put(("failed", None))
+        result_queue.put(("failed", bounded_error_message(error)))
 
 
 def run_with_timeout(target, args, timeout_seconds):

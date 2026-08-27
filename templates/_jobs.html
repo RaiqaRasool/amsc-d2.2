@@ -29,6 +29,9 @@
               </td>
               <td>
                 <code class="job-status {{ job.status_class }}">{{ job.status }}</code>
+                {% if job.error_message %}
+                  <br><span class="helper-error">{{ job.error_message }}</span>
+                {% endif %}
               </td>
               <td>
                 {% if job.export_name %}

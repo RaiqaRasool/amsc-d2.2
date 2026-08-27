@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Bound the time and disk space consumed by each MYA job and prevent internal
-exception details from being exposed through job records.
+Bound the time and disk space consumed by each MYA job while giving users a
+concise reason when the MYA backend rejects or cannot complete a query.
 
 ## Main Flow
 
@@ -20,13 +20,17 @@ exception details from being exposed through job records.
 - `WORKER_QUERY_TIMEOUT_SECONDS` and `MAX_MYA_OUTPUT_BYTES` configure the limits.
 - The execution deadline does not apply to asynchronous Globus data movement.
 - Failed and interrupted jobs leave no partial export file.
-- Detailed exceptions are written to server logs, not job `error_message` values.
+- MYA failure reasons are collapsed to one line, limited to 500 characters, and
+  stored in the job `error_message`.
+- Exception types and tracebacks remain limited to server logs.
 
 ## Failure Behavior
 
 Timeouts, oversized exports, and unexpected failures set the job to
-`query_failed` with a bounded, user-safe explanation. Unexpected transfer
-worker failures follow the same log-versus-user-message boundary.
+`query_failed` with a bounded explanation. When the MYA process supplies an
+exception message, the jobs API and jobs table show it after `MYA query failed:`.
+Failures without a message use a generic support message. Unexpected transfer
+worker failures keep the generic log-versus-user-message boundary.
 
 ## Key Components
 

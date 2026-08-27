@@ -9,7 +9,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from worker_limits import (  # noqa: E402
     LimitedTextWriter,
+    MAX_ERROR_MESSAGE_LENGTH,
     OutputLimitExceeded,
+    bounded_error_message,
     run_with_timeout,
 )
 
@@ -20,6 +22,10 @@ def return_value():
 
 def wait_too_long():
     time.sleep(1)
+
+
+def fail_with_reason():
+    raise RuntimeError("MYA backend\nrejected the query")
 
 
 class WorkerLimitTests(unittest.TestCase):
@@ -36,6 +42,15 @@ class WorkerLimitTests(unittest.TestCase):
         result, value = run_with_timeout(wait_too_long, (), 0.01)
         self.assertEqual(result, "timeout")
         self.assertIsNone(value)
+
+    def test_process_returns_bounded_single_line_failure_reason(self):
+        result, value = run_with_timeout(fail_with_reason, (), 1)
+        self.assertEqual(result, "failed")
+        self.assertEqual(value, "MYA backend rejected the query")
+
+    def test_failure_reason_is_limited(self):
+        message = bounded_error_message(RuntimeError("x" * 600))
+        self.assertEqual(len(message), MAX_ERROR_MESSAGE_LENGTH)
 
 
 if __name__ == "__main__":

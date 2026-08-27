@@ -41,7 +41,7 @@ def execute_mya_query(job):
     )
     os.makedirs(MYA_OUTPUT_DIR, exist_ok=True)
 
-    result, row_count = run_with_timeout(
+    result, result_value = run_with_timeout(
         run_and_export_mya_query,
         (job, temporary_path),
         WORKER_QUERY_TIMEOUT_SECONDS,
@@ -54,7 +54,11 @@ def execute_mya_query(job):
         error_messages = {
             "timeout": "MYA query exceeded the execution time limit.",
             "output_limit": "MYA query output exceeded the export size limit.",
-            "failed": "MYA query failed. Check the query values or contact support.",
+            "failed": (
+                f"MYA query failed: {result_value}"
+                if result_value
+                else "MYA query failed unexpectedly. Contact support."
+            ),
         }
         return update_job(
             job["job_id"],
@@ -76,7 +80,7 @@ def execute_mya_query(job):
         status="query_complete",
         error_message=None,
     )
-    completed_job["row_count"] = row_count
+    completed_job["row_count"] = result_value
     return completed_job
 
 
