@@ -208,7 +208,11 @@ def login():
         refresh_tokens=True,
         state=state,
     )
-    return redirect(client.oauth2_get_authorize_url())
+    return redirect(
+        client.oauth2_get_authorize_url(
+            session_required_policies=required_env("GLOBUS_AUTH_POLICY_UUID")
+        )
+    )
 
 
 @app.get("/callback")

@@ -92,6 +92,7 @@ FLASK_SECRET_KEY=<random-secret>
 GLOBUS_CLIENT_ID=<confidential-client-id>
 GLOBUS_CLIENT_SECRET=<confidential-client-secret>
 GLOBUS_REDIRECT_URI=http://localhost:5000/callback
+GLOBUS_AUTH_POLICY_UUID=<jlab-bnl-policy-uuid>
 
 SOURCE_COLLECTION_ID=<source-collection-id>
 SOURCE_DIRECTORY=/directory/as-seen-by-globus
@@ -100,6 +101,11 @@ MYQUERY_PROTOCOL=http
 MYQUERY_SERVER=myquery:8080
 MYA_DEPLOYMENT=docker
 ```
+
+`GLOBUS_AUTH_POLICY_UUID` is the Globus Authentication Policy that limits
+sign-in to the approved JLab and BNL identity domains. The app requires Globus
+Auth to satisfy this policy on every authorization request, including
+collection-consent reauthorization.
 
 `MYA_EXPORT_HOST_DIR` is mounted at `/mya-output` in the web and worker
 containers. If it is omitted, Compose uses `./mya-output`.

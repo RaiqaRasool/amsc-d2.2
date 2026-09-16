@@ -17,6 +17,13 @@ class SessionSecurityTests(unittest.TestCase):
         app_source = Path(__file__).resolve().parents[1].joinpath("app.py").read_text()
         self.assertNotIn("transfer_access_token", app_source)
 
+    def test_oauth_authorization_requires_configured_policy(self):
+        app_source = Path(__file__).resolve().parents[1].joinpath("app.py").read_text()
+        self.assertIn(
+            'session_required_policies=required_env("GLOBUS_AUTH_POLICY_UUID")',
+            app_source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

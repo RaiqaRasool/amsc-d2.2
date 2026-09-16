@@ -15,6 +15,7 @@ The required local configuration is:
 GLOBUS_CLIENT_ID=<confidential-client-id>
 GLOBUS_CLIENT_SECRET=<confidential-client-secret>
 GLOBUS_REDIRECT_URI=http://localhost:5000/callback
+GLOBUS_AUTH_POLICY_UUID=<jlab-bnl-policy-uuid>
 ```
 
 Never commit the client secret. For local development, register this exact
@@ -30,8 +31,8 @@ Production deployments must register their deployed callback URI and use HTTPS.
 
 1. `/login` generates an OAuth state value and starts the confidential-client
    authorization-code flow.
-2. The authorization request includes the Globus Transfer scope and requests
-   refresh tokens.
+2. The authorization request includes the Globus Transfer scope, requests
+   refresh tokens, and requires the configured JLab/BNL authentication policy.
 3. Globus redirects the browser to `/callback` with an authorization code and
    the original state.
 4. `/callback` validates and consumes the state before exchanging the code.
@@ -56,6 +57,12 @@ The base authorization request uses the Globus Transfer `all` scope:
 ```text
 urn:globus:auth:scope:transfer.api.globus.org:all
 ```
+
+Every authorization URL also includes `GLOBUS_AUTH_POLICY_UUID` as a required
+session policy. Globus Auth therefore permits the flow to complete only when
+the registered policy is satisfied. The policy itself owns the allowed JLab
+and BNL identity-domain rules; this application does not duplicate those rules
+as email-domain checks.
 
 Some collections require an additional collection `data_access` scope. When a
 collection browse request returns a consent-required response, the app records
