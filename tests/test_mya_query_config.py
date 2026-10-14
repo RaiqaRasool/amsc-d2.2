@@ -106,9 +106,11 @@ class MyaQueryConfigTests(unittest.TestCase):
     @patch("mya_query.Channel")
     @patch("mya_query.ChannelQuery")
     def test_channel_uses_application_deployment(self, query_class, channel_class):
-        channel_class.return_value.data = []
+        channel_class.return_value = MagicMock(spec=["run", "matches"])
+        matches = [{"name": "channel100", "datatype": "DBR_DOUBLE", "datasize": 1}]
+        channel_class.return_value.matches = matches
 
-        mya_query.run_channel("pv%")
+        self.assertEqual(matches, mya_query.run_channel("pv%"))
 
         query_class.assert_called_once_with(
             pattern="pv%",

@@ -126,4 +126,4 @@ def run_channel(pattern):
     query = ChannelQuery(pattern=pattern, deployment=MYA_DEPLOYMENT)
     channel = Channel(query)
     channel.run()
-    return channel.data if channel.data is not None else []
+    return channel.matches if channel.matches is not None else []
