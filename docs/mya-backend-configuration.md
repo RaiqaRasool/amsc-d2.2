@@ -18,6 +18,13 @@ without changing query code.
   `jlab_archiver_client` endpoint when the query module loads.
 - `MYA_DEPLOYMENT` is passed to MySampler, Interval, MyStats, Point, and Channel
   queries.
+- Point results use the client's event dictionary; Channel results use its
+  channel matches, including the metadata exposed by MyQuery.
+- Multi-PV Interval queries pass the PV list and time options to the client's
+  parallel runner and export only the returned data frame as CSV.
+- The parallel runner always includes prior points to merge PV histories,
+  even when `prior_point=False` is supplied. Single-channel Interval queries
+  honor the requested prior-point option.
 - Submitted jobs cannot override the application deployment.
 - The client does not fall back to another deployment when the configured
   deployment is unavailable.

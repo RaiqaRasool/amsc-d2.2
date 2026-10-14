@@ -94,14 +94,51 @@ class MyaQueryConfigTests(unittest.TestCase):
     @patch("mya_query.Point")
     @patch("mya_query.PointQuery")
     def test_point_uses_application_deployment(self, query_class, point_class):
-        point_class.return_value.data = MagicMock()
+        point_class.return_value = MagicMock(spec=["run", "event"])
+        event = {"name": "pv", "data": {"d": "2026-01-01", "v": 5}}
+        point_class.return_value.event = event
 
-        mya_query.run_point("pv", "2026-01-01")
+        self.assertEqual(event, mya_query.run_point("pv", "2026-01-01"))
 
         self.assertEqual(
             mya_query.MYA_DEPLOYMENT,
             query_class.call_args.kwargs["deployment"],
         )
+
+    @patch("mya_query.Point")
+    @patch("mya_query.PointQuery")
+    def test_point_rejects_missing_event(self, query_class, point_class):
+        point_class.return_value = MagicMock(spec=["run", "event"])
+        point_class.return_value.event = None
+        with self.assertRaisesRegex(RuntimeError, "Point query returned no data"):
+            mya_query.run_point("pv", "2026-01-01")
+
+    @patch("mya_query.Interval")
+    @patch("mya_query.IntervalQuery")
+    def test_parallel_interval_returns_only_data(self, query_class, interval_class):
+        data = FakeData()
+        interval_class.run_parallel.return_value = (data, {"pv": []}, {"pv": {}})
+
+        self.assertIs(
+            data,
+            mya_query.run_interval("2026-01-01", "2026-01-02", pvlist=["pv", "pv2"]),
+        )
+        interval_class.run_parallel.assert_called_once_with(
+            pvlist=["pv", "pv2"],
+            begin=datetime(2026, 1, 1),
+            end=datetime(2026, 1, 2),
+            prior_point=True,
+            deployment=mya_query.MYA_DEPLOYMENT,
+        )
+        query_class.assert_not_called()
+
+    @patch("mya_query.Interval")
+    def test_parallel_interval_rejects_empty_data(self, interval_class):
+        data = FakeData()
+        data.empty = True
+        interval_class.run_parallel.return_value = (data, {}, {})
+        with self.assertRaisesRegex(RuntimeError, "Interval query returned no data"):
+            mya_query.run_interval("2026-01-01", "2026-01-02", pvlist=["pv"])
 
     @patch("mya_query.Channel")
     @patch("mya_query.ChannelQuery")

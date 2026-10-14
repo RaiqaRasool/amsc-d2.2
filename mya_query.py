@@ -68,14 +68,14 @@ def run_interval(
     begin = datetime.fromisoformat(begin) if isinstance(begin, str) else begin
     end = datetime.fromisoformat(end) if isinstance(end, str) else end
     if pvlist:
-        query = IntervalQuery(
+        # The client always includes prior points when merging multiple PVs.
+        data, _, _ = Interval.run_parallel(
             pvlist=pvlist,
             begin=begin,
             end=end,
             prior_point=prior_point,
             deployment=MYA_DEPLOYMENT,
         )
-        data = Interval.run_parallel(query)
     elif channel:
         query = IntervalQuery(
             channel=channel,
@@ -117,9 +117,9 @@ def run_point(channel, time):
     query = PointQuery(channel=channel, time=time, deployment=MYA_DEPLOYMENT)
     point = Point(query)
     point.run()
-    if point.data is None:
+    if point.event is None:
         raise RuntimeError(f"Point query returned no data for channel: {channel}")
-    return point.data
+    return point.event
 
 
 def run_channel(pattern):
