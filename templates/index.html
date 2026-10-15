@@ -31,6 +31,14 @@
 
           <section class="panel">
             <h2>Query Maya</h2>
+            {% if query_prefill %}
+              <div class="notice notice-info rerun-notice" id="rerun-notice">
+                <span role="status"><strong>Previous query loaded.</strong> Review the parameters, then choose Query only
+                  or Query and transfer. Nothing has been submitted.
+                  Transfers use your current destination selection and authorization.</span>
+                <button type="button" class="notice-dismiss" aria-label="Dismiss rerun reminder">×</button>
+              </div>
+            {% endif %}
 
             <div class="request-stack">
               <section class="subpanel">
@@ -59,7 +67,7 @@
                     <h3 class="field-wide">MySampler Query</h3>
                     <label>
                       Start
-                      <input type="datetime-local" name="mysampler_start" required>
+                      <input type="datetime-local" step="any" name="mysampler_start" required>
                     </label>
                     <label>
                       Interval (milliseconds)
@@ -94,11 +102,11 @@
                     <h3 class="field-wide">Interval Query</h3>
                     <label>
                       Begin
-                      <input type="datetime-local" name="interval_begin" required disabled>
+                      <input type="datetime-local" step="any" name="interval_begin" required disabled>
                     </label>
                     <label>
                       End
-                      <input type="datetime-local" name="interval_end" required disabled>
+                      <input type="datetime-local" step="any" name="interval_end" required disabled>
                     </label>
                     <label class="field-wide">
                       <span class="field-label">
@@ -130,11 +138,11 @@
                     <h3 class="field-wide">MyStats Query</h3>
                     <label>
                       Start
-                      <input type="datetime-local" name="mystats_start" required disabled>
+                      <input type="datetime-local" step="any" name="mystats_start" required disabled>
                     </label>
                     <label>
                       End
-                      <input type="datetime-local" name="mystats_end" required disabled>
+                      <input type="datetime-local" step="any" name="mystats_end" required disabled>
                     </label>
                     <label>
                       Bins
@@ -169,7 +177,7 @@
                     </label>
                     <label>
                       Time
-                      <input type="datetime-local" name="point_time" required disabled>
+                      <input type="datetime-local" step="any" name="point_time" required disabled>
                     </label>
                   </section>
 
@@ -259,6 +267,13 @@
       </div>
     </main>
     <script>
+      const rerunNotice = document.getElementById("rerun-notice");
+      if (rerunNotice) {
+        rerunNotice.querySelector(".notice-dismiss").addEventListener("click", () => {
+          rerunNotice.remove();
+        });
+      }
+
       const queryForm = document.getElementById("query-form");
 
       if (queryForm) {
@@ -324,11 +339,6 @@
           if (queryTypeField.value === "mysampler") {
             validatePvList("mysampler_pvlist");
           } else if (queryTypeField.value === "interval") {
-            const channelField = queryForm.elements.interval_channel;
-            const pvField = queryForm.elements.interval_pvlist;
-            if (!channelField.value.trim() && !pvField.value.trim()) {
-              pvField.setCustomValidity("Enter one channel or a comma-separated PV list.");
-            }
             validatePvList("interval_pvlist");
             validateDateRange("interval_begin", "interval_end");
           } else if (queryTypeField.value === "mystats") {
@@ -352,6 +362,20 @@
           }
         } catch (error) {
           sessionStorage.removeItem(draftKey);
+        }
+
+        const prefill = {{ query_prefill|tojson }};
+        if (Object.keys(prefill).length) {
+          queryFields.forEach((field) => {
+            if (Object.hasOwn(prefill, field.name)) {
+              if (field.type === "checkbox") {
+                field.checked = prefill[field.name];
+              } else {
+                field.value = prefill[field.name];
+              }
+            }
+          });
+          saveQueryDraft();
         }
 
         activateQueryTab(queryTypeField.value);

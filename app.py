@@ -52,6 +52,7 @@ from jobs import (
 )
 from oauth_states import consume_oauth_state, store_oauth_state
 from query_validation import validate_query_params
+from query_prefill import query_form_values
 from result_preview import open_export, preview_export
 from rate_limits import RateLimitExceeded, record_request
 from token_cleanup import cleanup_token_reference_if_ready
@@ -184,9 +185,22 @@ def rate_limit_response(scope_key, action, limits):
 def index():
     globus_identity = session.get("globus_identity")
     logged_in = bool(session.get("logged_in") and globus_identity)
+    query_prefill = {}
+    previous_job_id = request.args.get("reuse")
+    if previous_job_id:
+        if not logged_in:
+            abort(401)
+        previous_job = get_job_for_identity(previous_job_id, globus_identity)
+        if previous_job is None:
+            abort(404)
+        try:
+            query_prefill = query_form_values(previous_job)
+        except (ValueError, TypeError):
+            flash("This request cannot be prefilled. Please enter its query parameters manually.", "error")
     return render_template(
         "index.html",
         logged_in=logged_in,
+        query_prefill=query_prefill,
         demo_catalog_enabled=MYA_DEPLOYMENT == "docker",
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),

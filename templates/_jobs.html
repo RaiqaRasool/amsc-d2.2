@@ -17,6 +17,7 @@
             <th>Destination</th>
             <th>Task ID</th>
             <th>Updated</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -84,6 +85,7 @@
                 {% endif %}
               </td>
               <td>{{ job.updated_at }}</td>
+              <td><a href="{{ url_for('index', reuse=job.job_id, _anchor='query-form') }}">Run again</a></td>
             </tr>
           {% endfor %}
         </tbody>
