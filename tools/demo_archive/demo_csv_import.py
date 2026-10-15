@@ -112,7 +112,7 @@ def _write_channel_schema(output, name, channel_id):
     name_sql = "CONVERT(0x" + name.encode("utf-8").hex() + " USING utf8mb4)"
     output.write(
         "-- Synthetic scalar metadata and change history derived from MySampler CSV.\n"
-        "-- Initial-load SQL; repeat-safe database importing is not implemented yet.\n"
+        "-- Initial-load SQL; use import_sql.py for existing database channels.\n"
         "USE archive;\n"
         "INSERT INTO channels "
         "(chan_id, name, type, adel, size, clip, active, request, alert, host, backup, ioc)\n"
@@ -129,8 +129,8 @@ def _write_channel_schema(output, name, channel_id):
 def convert_csv(csv_path, output_dir, mapping_path=None, timezone_name="America/New_York"):
     """Publish one complete SQL bundle for one ordered CSV, using bounded row memory.
 
-    Reuse the previous bundle's channels.json for subsequent CSVs. SQL here is
-    for initial loading; import-time collision and rerun handling is a later step.
+    Reuse the previous bundle's channels.json for subsequent CSVs. Use the
+    companion import_sql.py for database collision and rerun handling.
     """
     csv_path, output_dir = Path(csv_path), Path(output_dir)
     if output_dir.exists():

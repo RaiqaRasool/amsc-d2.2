@@ -5,7 +5,7 @@
 Convert approved MySampler CSV exports into a synthetic MYA demo archive,
 with reviewable SQL per PV and an explicit command for importing later files.
 Timestamp helpers, channel mapping, and streaming CSV-to-SQL generation are
-implemented. Database importing is not implemented yet.
+implemented, including an explicit repeat-safe demo database import command.
 
 ## Input
 
@@ -94,3 +94,21 @@ implemented. Database importing is not implemented yet.
 
 See [the demo archive tool README](../tools/demo_archive/README.md) for commands,
 output format, and current limitations. Tests remain under top-level `tests/`.
+
+## Implemented Import Command
+
+- `tools/demo_archive/import_sql.py` validates generated bundles and invokes the
+  selected Docker/Podman Compose demo database's MySQL client without a Python
+  database-driver dependency. It checks metadata, ID/name collisions, event-table
+  schema, and timestamp/code/FLOAT-value conflicts.
+- Identical stored events are skipped. Incoming event values are compared at
+  FLOAT storage precision. Conflicts fail without overwriting existing events.
+- Each channel's event insertion uses an InnoDB transaction. DDL/metadata
+  creation and previously completed channels can remain on failure; errors
+  report the failing channel and channels already completed.
+- The tool serializes its own import sessions with an advisory database lock;
+  unrelated writers must be stopped for import. Existing sample fixtures remain.
+- Verified initial import, repeat import, later-file append, event conflicts,
+  incompatible metadata/schema, and ID collisions against an isolated
+  `jeffersonlab/mycontainer:2.0.0` container. Approved CSVs and application
+  databases were not used. End-to-end MyQuery checks remain the next step.
