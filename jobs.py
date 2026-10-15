@@ -412,3 +412,11 @@ def update_job(job_id, **fields):
 
 
 init_jobs_db()
+
+
+def export_has_other_jobs(job):
+    with jobs_db() as connection:
+        return connection.execute(
+            "SELECT 1 FROM mya_transfer_jobs WHERE source_path = ? AND job_id != ? LIMIT 1",
+            (job["source_path"], job["job_id"]),
+        ).fetchone() is not None

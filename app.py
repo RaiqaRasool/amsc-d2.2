@@ -120,6 +120,16 @@ def collection_browse_error(error):
     return f"Globus could not browse this collection. {message}"
 
 
+def open_transfer_export(job):
+    allowed = ("query_complete", "transfer_succeeded", "transfer_failed", "transfer_auth_failed")
+    if job["query_type"] == "transfer":
+        allowed = ("transfer_failed", "transfer_auth_failed", "query_failed")
+    if job["status"] not in allowed:
+        raise ValueError("This job is not ready for a transfer attempt.")
+    # Older workers marked transfer-only attempts query_failed despite a retained export.
+    return open_export(dict(job, status="query_complete"))
+
+
 def job_for_display(job):
     if job is None:
         return None
@@ -146,6 +156,13 @@ def job_for_display(job):
         if destination_path
         else None
     )
+    display_job["can_transfer"] = False
+    try:
+        source, _, _ = open_transfer_export(job)
+        source.close()
+        display_job["can_transfer"] = True
+    except (OSError, ValueError):
+        pass
     display_job["task_url"] = globus_task_url(display_job.get("globus_task_id"))
     display_job["preview_url"] = (
         url_for("job_preview", job_id=display_job["job_id"]) if source_path else None
@@ -187,6 +204,26 @@ def index():
     globus_identity = session.get("globus_identity")
     logged_in = bool(session.get("logged_in") and globus_identity)
     query_prefill = {}
+    if request.args.get("cancel_transfer"):
+        session.pop("existing_transfer_job", None)
+    if request.args.get("transfer"):
+        session["existing_transfer_job"] = request.args["transfer"]
+    transfer_job = None
+    transfer_size = None
+    if session.get("existing_transfer_job"):
+        pending_transfer_id = session.pop("existing_transfer_job")
+        transfer_job = owned_export_job(pending_transfer_id)
+        session["existing_transfer_job"] = pending_transfer_id
+        try:
+            source, _, transfer_size = open_transfer_export(transfer_job)
+            source.close()
+        except ValueError:
+            session.pop("existing_transfer_job", None)
+            abort(409)
+        except OSError:
+            session.pop("existing_transfer_job", None)
+            flash("This output is no longer available. Use Run again to regenerate it.", "error")
+            transfer_job = None
     previous_job_id = request.args.get("reuse")
     if previous_job_id:
         if not logged_in:
@@ -202,6 +239,8 @@ def index():
         "index.html",
         logged_in=logged_in,
         query_prefill=query_prefill,
+        transfer_job=transfer_job,
+        transfer_size=transfer_size,
         demo_catalog_enabled=MYA_DEPLOYMENT == "docker",
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),
@@ -634,6 +673,54 @@ def owned_export_job(job_id):
     if job is None:
         abort(404)
     return job
+
+
+@app.post("/jobs/<job_id>/transfer")
+def transfer_existing_output(job_id):
+    original = owned_export_job(job_id)
+    try:
+        source, _, _ = open_transfer_export(original)
+        source.close()
+    except ValueError:
+        abort(409)
+    except OSError:
+        flash("This output is no longer available. Use Run again to regenerate it.", "error")
+        return redirect(url_for("index", cancel_transfer=1))
+    identity = session["globus_identity"]
+    limited = rate_limit_response(f"identity:{identity}", "mya_submission", MYA_SUBMISSION_RATE_LIMITS)
+    if limited is not None:
+        return limited
+    if not session.get("token_reference") or transfer_client() is None:
+        session["existing_transfer_job"] = job_id
+        return redirect(url_for("login"))
+    if (not session.get("destination_selection_id")
+        or request.form.get("destination_selection_id") != session.get("destination_selection_id")
+        or request.form.get("validated_collection_id") != session.get("destination_collection_id")
+        or request.form.get("validated_destination_path") != session.get("destination_path")):
+        flash("Press Enter in the destination path to validate the folder before transferring.", "error")
+        return redirect(url_for("index", transfer=job_id))
+    try:
+        collection = validate_collection_id(session.get("destination_collection_id"))
+        folder = validate_destination_path(session.get("destination_path"))
+        label = transfer_label(request.form.get("transfer_label", ""))
+        validate_transfer_label(label)
+        attempt_id = str(uuid.uuid4())
+        create_job(job_id=attempt_id, status="queued", query_type="transfer",
+                   query_params={"parent_job_id": original["query_params"].get("parent_job_id", job_id)}, globus_identity=identity,
+                   user_identity=session.get("user_identity"),
+                   source_collection_id=original["source_collection_id"], source_path=original["source_path"],
+                   destination_collection_id=collection, destination_path=folder,
+                   destination_collection_name=session.get("destination_collection_name"),
+                   transfer_label=label, transfer_requested=True, token_reference=session["token_reference"],
+                   max_pending_per_user=MAX_PENDING_JOBS_PER_USER, max_pending_global=MAX_PENDING_JOBS_GLOBAL)
+    except (ValueError, QueueCapacityError):
+        flash("Check the destination and transfer label, or wait for pending jobs to finish.", "error")
+        return redirect(url_for("index", transfer=job_id))
+    except TokenReferenceRetiredError:
+        return redirect(url_for("login"))
+    session.pop("existing_transfer_job", None)
+    flash(f"Transfer queued: {attempt_id}. The query will not run again.", "success")
+    return redirect(url_for("index"))
 
 
 @app.get("/jobs/<job_id>/preview")

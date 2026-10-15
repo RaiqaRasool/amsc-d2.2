@@ -28,13 +28,21 @@ def process_next_job():
         return False
 
     try:
-        completed_job = execute_mya_query(job)
+        if job["query_type"] == "transfer":
+            from result_preview import open_export
+            source, _, _ = open_export(dict(job, status="query_complete"))
+            source.close()
+            completed_job = update_job(job["job_id"], status="query_complete")
+        else:
+            completed_job = execute_mya_query(job)
     except Exception:
         LOGGER.exception("Worker failed while processing job %s.", job["job_id"])
         completed_job = update_job(
             job["job_id"],
-            status="query_failed",
-            error_message="The MYA worker failed unexpectedly. Contact support.",
+            status="transfer_failed" if job["query_type"] == "transfer" else "query_failed",
+            error_message=("The export is unavailable or the transfer worker failed. Use Run again if the file has expired."
+                           if job["query_type"] == "transfer" else
+                           "The MYA worker failed unexpectedly. Contact support."),
         )
 
     if (

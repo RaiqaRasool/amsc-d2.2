@@ -15,6 +15,10 @@ space indefinitely.
 - Queued, running, submitted, inactive, and retrying work is never removed.
 - File deletion is restricted to generated `mya-<uuid>.csv` and
   `mya-<uuid>.json` names inside the configured output directory.
+- Shared exports remain while another job references the same source path,
+  including queued and submitted transfer attempts. The last referencing job
+  removes the file when it expires. Original query records may expire earlier
+  than a later transfer attempt.
 - A database record is retained for retry when its export cannot be removed.
 
 ## Failure Behavior

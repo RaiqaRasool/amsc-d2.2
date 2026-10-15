@@ -30,7 +30,11 @@
           </section>
 
           <section class="panel">
-            <h2>Query Maya</h2>
+            <h2>{{ 'Transfer existing output' if transfer_job else 'Query Maya' }}</h2>
+            {% if transfer_job %}
+              <p>Transfer <strong>{{ transfer_job.source_path.split('/')[-1] }}</strong> ({{ transfer_size }} bytes).
+                Choose and validate a destination below. <a href="{{ url_for('index', cancel_transfer=1) }}">Cancel</a></p>
+            {% endif %}
             {% if query_prefill %}
               <div class="notice notice-info rerun-notice" id="rerun-notice">
                 <span role="status"><strong>Previous query loaded.</strong> Review the parameters, then choose Query only
@@ -42,7 +46,7 @@
 
             <div class="request-stack">
               <section class="subpanel">
-                <form id="query-form" action="{{ url_for('query_mya') }}" method="post">
+                <form id="query-form" action="{{ url_for('transfer_existing_output', job_id=transfer_job.job_id) if transfer_job else url_for('query_mya') }}" method="post" {% if transfer_job %}hidden{% endif %}>
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <input type="hidden" name="query_type" value="mysampler">
                   <div class="query-tabs" role="tablist" aria-label="MYA query type">
@@ -260,9 +264,10 @@
                         type="submit"
                         name="submit_action"
                         value="query_and_transfer"
+                        {% if transfer_job %}formnovalidate{% endif %}
                         {% if not destination_selection_id %}disabled{% endif %}
                       >
-                        Query &amp; Transfer
+                        {% if transfer_job %}Transfer file{% else %}Query &amp; Transfer{% endif %}
                       </button>
                     </span>
                   </div>
@@ -410,6 +415,7 @@
           field.addEventListener("change", saveQueryDraft);
         });
         queryForm.addEventListener("submit", (event) => {
+          if (event.submitter?.formNoValidate) return;
           validateQueryFields();
           if (!queryForm.reportValidity()) {
             event.preventDefault();

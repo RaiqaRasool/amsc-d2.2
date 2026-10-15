@@ -698,3 +698,12 @@ th {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+.job-actions {
+  white-space: nowrap;
+}
+
+.job-actions .icon-button {
+  vertical-align: middle;
+  text-decoration: none;
+}

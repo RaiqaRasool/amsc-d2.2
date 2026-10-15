@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from config import JOB_RETENTION_DAYS, MYA_OUTPUT_DIR
-from jobs import delete_expired_terminal_job, list_expired_terminal_jobs
+from jobs import delete_expired_terminal_job, list_expired_terminal_jobs, export_has_other_jobs
 
 
 LOGGER = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def cleanup_expired_jobs(now=None):
     deleted_jobs = 0
     for job in list_expired_terminal_jobs(cutoff):
         export_path = generated_export_path(job.get("source_path"))
-        if export_path:
+        if export_path and not export_has_other_jobs(job):
             try:
                 os.remove(export_path)
             except FileNotFoundError:
