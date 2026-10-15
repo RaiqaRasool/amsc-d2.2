@@ -276,6 +276,7 @@
             </div>
           </section>
 
+          <p id="history-message" role="status"></p>
           <div id="jobs-panel">
             {% include "_jobs.html" %}
           </div>
@@ -677,6 +678,27 @@
         }
       }
 
+      jobsPanel?.addEventListener("click", event => {
+        if (event.target.closest("[data-refresh-history]")) refreshJobsPanel();
+      });
+      jobsPanel?.addEventListener("submit", async event => {
+        const form = event.target;
+        if (!form.matches(".job-delete-form")) return;
+        event.preventDefault();
+        if (!window.confirm("Delete job " + form.dataset.jobId + "? This permanently removes its local history entry and its generated file if no other job uses it. Globus tasks and remote files are unchanged.")) return;
+        const button = event.submitter;
+        button.disabled = true;
+        const message = document.getElementById("history-message");
+        try {
+          const response = await fetch(form.getAttribute("action"), {method: "POST", body: new FormData(form), headers: {Accept: "application/json"}});
+          if (!response.headers.get("content-type")?.includes("application/json")) throw new Error("Could not delete this job. Refresh the page and try again.");
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not delete this job.");
+          message.textContent = "Job deleted. Globus tasks and remote files are unchanged.";
+          await refreshJobsPanel();
+        } catch (error) { message.textContent = error.message; }
+        finally { button.disabled = false; }
+      });
       setInterval(refreshJobsPanel, 5000);
     </script>
   </body>

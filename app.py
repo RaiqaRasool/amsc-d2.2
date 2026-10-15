@@ -56,6 +56,8 @@ from oauth_states import consume_oauth_state, store_oauth_state
 from query_validation import validate_query_params
 from query_prefill import query_form_values
 from result_preview import open_export, preview_export
+from retention import delete_owned_job
+from jobs import TERMINAL_JOB_STATUSES
 from rate_limits import RateLimitExceeded, record_request
 from token_cleanup import cleanup_token_reference_if_ready
 from web_validation import (
@@ -170,6 +172,9 @@ def job_for_display(job):
         )
         if destination_path
         else None
+    )
+    display_job["can_delete"] = job["status"] in TERMINAL_JOB_STATUSES and not (
+        job["status"] == "query_complete" and job.get("transfer_requested")
     )
     display_job["can_transfer"] = False
     try:
@@ -736,6 +741,22 @@ def transfer_existing_output(job_id):
     session.pop("existing_transfer_job", None)
     flash(f"Transfer queued: {attempt_id}. The query will not run again.", "success")
     return redirect(url_for("index"))
+
+
+@app.post("/jobs/<job_id>/delete")
+def delete_job(job_id):
+    owned_export_job(job_id)
+    try:
+        if not delete_owned_job(job_id, session["globus_identity"]):
+            abort(404)
+    except ValueError as error:
+        return jsonify(error=str(error)), 409
+    except OSError:
+        app.logger.exception("Could not delete local export for job %s", job_id)
+        return jsonify(error="Could not remove the local file. The job was kept; try again later."), 500
+    if session.get("existing_transfer_job") == job_id:
+        session.pop("existing_transfer_job", None)
+    return jsonify(deleted=True)
 
 
 @app.get("/jobs/<job_id>/preview")

@@ -728,3 +728,6 @@ th {
 .history-table td:first-child code,
 .history-table .job-status,
 .history-table td:nth-child(6) { white-space: nowrap; }
+
+.history-heading { display: flex; align-items: center; gap: 8px; }
+.job-delete-form { display: inline-block; margin: 0; vertical-align: middle; }

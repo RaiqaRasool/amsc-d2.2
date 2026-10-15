@@ -52,3 +52,33 @@ def cleanup_expired_jobs(now=None):
         if delete_expired_terminal_job(job["job_id"], cutoff):
             deleted_jobs += 1
     return deleted_jobs
+
+
+def delete_owned_job(job_id, identity):
+    """Serialize deletion with job creation/claiming; preserve shared exports."""
+    from jobs import jobs_db
+    with jobs_db() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            "SELECT * FROM mya_transfer_jobs WHERE job_id = ? AND globus_identity = ?",
+            (job_id, identity),
+        ).fetchone()
+        if row is None:
+            return False
+        from jobs import TERMINAL_JOB_STATUSES
+        if row['status'] not in TERMINAL_JOB_STATUSES or (
+            row['status'] == 'query_complete' and row['transfer_requested']
+        ):
+            raise ValueError('Wait for this job and its transfer to finish before deleting it.')
+        shared = connection.execute(
+            "SELECT 1 FROM mya_transfer_jobs WHERE source_path = ? AND job_id != ? LIMIT 1",
+            (row['source_path'], job_id),
+        ).fetchone()
+        path = generated_export_path(row['source_path'])
+        if path and not shared:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+        connection.execute("DELETE FROM mya_transfer_jobs WHERE job_id = ?", (job_id,))
+    return True
