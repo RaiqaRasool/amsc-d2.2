@@ -13,7 +13,7 @@ class DemoCatalogTests(unittest.TestCase):
     @patch('tools.demo_archive.refresh_catalog._query')
     def test_inventory_and_dates_come_from_database(self, query):
         query.side_effect = [
-            [['100', '6368616e6e656c313030', '6', '1'], ['1002', '494e58324c30375f6744735274', '6', '1']],
+            [['100', '6368616e6e656c313030', '6', '1'], ['1002', '494e58324c30375f6744735274', '1', '11']],
             [['100', '0', str(1 << 27), '2'], ['1002', 'NULL', 'NULL', '0']],
         ]
         with tempfile.TemporaryDirectory() as directory:
@@ -24,6 +24,13 @@ class DemoCatalogTests(unittest.TestCase):
             self.assertEqual('INX2L07_gDsRt', rows[0]['pv_name'])
             self.assertEqual('', rows[0]['first_stored_event'])
             self.assertEqual('0', rows[0]['stored_events'])
+            self.assertEqual('DBR_SHORT', rows[0]['datatype'])
+            self.assertEqual('array (11 elements)', rows[0]['value_shape'])
+            self.assertEqual('DBR_DOUBLE', rows[1]['datatype'])
+            self.assertEqual('scalar', rows[1]['value_shape'])
+            self.assertNotIn('refreshed_at', rows[0])
+            self.assertNotIn('datatype_code', rows[0])
+            self.assertNotIn('element_count', rows[0])
             self.assertEqual('1969-12-31T19:00:00.000000-05:00', rows[1]['first_stored_event'])
             self.assertEqual('1969-12-31T19:00:00.500000-05:00', rows[1]['last_stored_event'])
             self.assertEqual(0o644, output.stat().st_mode & 0o777)

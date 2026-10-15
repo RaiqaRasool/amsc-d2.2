@@ -1,4 +1,5 @@
 import os
+import csv
 import posixpath
 import secrets
 import uuid
@@ -187,18 +188,44 @@ def index():
     )
 
 
-@app.get("/demo-catalog.csv")
-def demo_catalog():
+def demo_catalog_response(download=False):
     if not session.get("logged_in") or not session.get("globus_identity"):
         return redirect(url_for("index"))
     if MYA_DEPLOYMENT != "docker":
         abort(404)
-    if not os.path.isfile(DEMO_CATALOG_PATH):
+    try:
+        if download:
+            response = send_file(DEMO_CATALOG_PATH, mimetype="text/csv", as_attachment=True,
+                                 download_name="demo-catalog.csv", conditional=False)
+        else:
+            with open(DEMO_CATALOG_PATH, newline="", encoding="utf-8") as source:
+                reader = csv.DictReader(source)
+                columns = [(key, label) for key, label in (
+                    ("pv_name", "PV name"), ("datatype", "Datatype"),
+                    ("value_shape", "Value shape"), ("first_stored_event", "First stored event"),
+                    ("last_stored_event", "Last stored event"), ("stored_events", "Stored events"),
+                ) if key in (reader.fieldnames or [])]
+                rows = list(reader)
+            search = request.args.get("q", "").strip()[:255]
+            matching = [row for row in rows if search.casefold() in row.get("pv_name", "").casefold()]
+            response = app.make_response(render_template(
+                "demo_catalog.html", columns=columns, rows=matching,
+                search=search, total=len(rows),
+            ))
+    except FileNotFoundError:
         return "Demo catalog is not available yet. Ask the demo operator to refresh it.", 404
-    response = send_file(DEMO_CATALOG_PATH, mimetype="text/csv", as_attachment=True,
-                         download_name="demo-catalog.csv", conditional=False)
     response.headers["Cache-Control"] = "private, no-store"
     return response
+
+
+@app.get("/demo-catalog")
+def demo_catalog():
+    return demo_catalog_response()
+
+
+@app.get("/demo-catalog.csv")
+def demo_catalog_csv():
+    return demo_catalog_response(download=True)
 
 
 @app.get("/login")

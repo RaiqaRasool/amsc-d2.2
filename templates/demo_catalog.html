@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Available demo data — AmSC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <header class="topbar"><div class="topbar-inner">
+      <h1 class="brand">Available demo data</h1>
+      <a class="topbar-link" href="{{ url_for('index') }}">Back to queries</a>
+    </div></header>
+    <main class="container">
+      <section class="panel">
+        <h2>Demo PV catalog</h2>
+        <p>First and last stored events do not imply continuous coverage.
+          The latest value can carry forward across gaps. Dates include timezone offsets.</p>
+        <form action="{{ url_for('demo_catalog') }}" method="get">
+          <label>Find a PV <input type="search" name="q" value="{{ search }}" maxlength="255" placeholder="PV name"></label>
+          <button type="submit">Search</button>
+        </form>
+        <p>{{ rows|length }} of {{ total }} PVs · <a href="{{ url_for('demo_catalog_csv') }}">Download CSV</a></p>
+        <div class="table-wrap">
+          <table>
+            <caption>PV names and stored event ranges in the demo database</caption>
+            <thead><tr>{% for key, label in columns %}<th scope="col">{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+              {% for row in rows %}
+                <tr>{% for key, label in columns %}<td>{{ row.get(key, '') }}</td>{% endfor %}</tr>
+              {% else %}
+                <tr><td colspan="{{ columns|length or 1 }}">No matching PVs.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

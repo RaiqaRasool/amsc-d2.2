@@ -206,11 +206,18 @@ exercise MyQuery HTTP endpoints, not the Flask/Globus delivery workflow.
 
 After a successful CLI import, `demo-catalog/demo-catalog.csv` is refreshed from
 all local demo-host channels currently in the database, including existing
-fixtures. The query page's **Available demo data (CSV)** link downloads it for
-logged-in users in demo mode. No further frontend edits are needed for new PVs.
+fixtures. The query page's **? help icons beside PVs** open a searchable table
+on this site in a new tab for logged-in demo users. The table reads the current
+CSV and includes an optional **Download CSV** link. No further frontend edits
+are needed for new PVs.
 
-The columns are PV name, datatype code, element count, first/last stored events,
-stored event count, and refresh time. Event dates include America/New_York UTC
+The columns are PV name, readable MYA datatype (such as `DBR_DOUBLE`), value
+shape (`scalar` or `array (11 elements)`), first/last stored events, and stored
+event count. Refresh time and numeric datatype codes are omitted. The CSV
+converter/importer supports numeric scalars only; the catalog also describes
+pre-existing array PVs such as `channel102`. Imported datatype metadata is
+synthetic, not recovered from the source archive. PV help icons link to this
+catalog in demo mode and the Hall-D reference list in other deployments. Event dates include America/New_York UTC
 offsets. These are stored event ranges, not continuous coverage or original
 source-file ranges; deduplication can make the last stored event earlier than
 the final sampled row. Latest values still carry forward across gaps.

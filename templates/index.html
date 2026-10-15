@@ -31,11 +31,6 @@
 
           <section class="panel">
             <h2>Query Maya</h2>
-            {% if demo_catalog_enabled %}
-              <p><a href="{{ url_for('demo_catalog') }}">Available demo data (CSV)</a></p>
-              <p><small>The catalog lists first and last stored events, not continuous coverage.
-                The latest value can carry forward across gaps.</small></p>
-            {% endif %}
 
             <div class="request-stack">
               <section class="subpanel">
@@ -77,16 +72,21 @@
                     <label class="field-wide">
                       <span class="field-label">
                         PVs (comma-separated)
-                        <span class="pv-help" tabindex="0" aria-label="Help choosing EPICS variables">
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing PVs">
                           ?
                           <span class="pv-help-tooltip" role="tooltip">
-                            MYA queries require EPICS variable names. You can try values from this
-                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, however is not a complete list of available variables.
+                            {% if demo_catalog_enabled %}
+                              Choose PV names and stored event dates from the
+                              <a href="{{ url_for('demo_catalog') }}" target="_blank" rel="noopener noreferrer">available demo data catalog</a>.
+                            {% else %}
+                              MYA queries require EPICS variable names. You can try values from this
+                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                            {% endif %}
                           </span>
                         </span>
                       </span>
                       <input name="mysampler_pvlist" maxlength="25699" required>
-                      <small>Use archived PV names. In demo mode, check the available demo data catalog above for PVs and stored event dates.</small>
+                      <small>{% if demo_catalog_enabled %}Use the ? help icon beside PVs to open the demo catalog for PV names and stored event dates.{% else %}Use archived EPICS PV names.{% endif %}</small>
                     </label>
                   </section>
 
@@ -107,16 +107,21 @@
                     <label class="field-wide">
                       <span class="field-label">
                         PVs (comma-separated, instead of channel)
-                        <span class="pv-help" tabindex="0" aria-label="Help choosing EPICS variables">
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing PVs">
                           ?
                           <span class="pv-help-tooltip" role="tooltip">
-                            MYA queries require EPICS variable names. You can try values from this
+                            {% if demo_catalog_enabled %}
+                              Choose PV names and stored event dates from the
+                              <a href="{{ url_for('demo_catalog') }}" target="_blank" rel="noopener noreferrer">available demo data catalog</a>.
+                            {% else %}
+                              MYA queries require EPICS variable names. You can try values from this
                             <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                            {% endif %}
                           </span>
                         </span>
                       </span>
                       <input name="interval_pvlist" maxlength="25699" disabled>
-                      <small>Use archived PV names. In demo mode, check the available demo data catalog above for PVs and stored event dates.</small>
+                      <small>{% if demo_catalog_enabled %}Use the ? help icon beside PVs to open the demo catalog for PV names and stored event dates.{% else %}Use archived EPICS PV names.{% endif %}</small>
                     </label>
                     <label class="checkbox-label field-wide">
                       <input type="checkbox" name="interval_prior_point" value="true" checked disabled>
@@ -141,16 +146,21 @@
                     <label class="field-wide">
                       <span class="field-label">
                         PVs (comma-separated)
-                        <span class="pv-help" tabindex="0" aria-label="Help choosing EPICS variables">
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing PVs">
                           ?
                           <span class="pv-help-tooltip" role="tooltip">
-                            MYA queries require EPICS variable names. You can try values from this
+                            {% if demo_catalog_enabled %}
+                              Choose PV names and stored event dates from the
+                              <a href="{{ url_for('demo_catalog') }}" target="_blank" rel="noopener noreferrer">available demo data catalog</a>.
+                            {% else %}
+                              MYA queries require EPICS variable names. You can try values from this
                             <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                            {% endif %}
                           </span>
                         </span>
                       </span>
                       <input name="mystats_pvlist" maxlength="25699" required disabled>
-                      <small>Use archived PV names. In demo mode, check the available demo data catalog above for PVs and stored event dates.</small>
+                      <small>{% if demo_catalog_enabled %}Use the ? help icon beside PVs to open the demo catalog for PV names and stored event dates.{% else %}Use archived EPICS PV names.{% endif %}</small>
                     </label>
                   </section>
 

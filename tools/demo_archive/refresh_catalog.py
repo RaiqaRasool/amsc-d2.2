@@ -10,8 +10,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 DEFAULT_CATALOG_PATH = Path(__file__).resolve().parents[2] / 'demo-catalog' / 'demo-catalog.csv'
-CATALOG_FIELDS = ('pv_name', 'datatype_code', 'element_count', 'first_stored_event',
-                  'last_stored_event', 'stored_events', 'refreshed_at')
+# JeffersonLab/jmyapi MyaDataType enum, verified at 7f2301e2.
+DATATYPE_NAMES = ('DBR_STRING', 'DBR_SHORT', 'DBR_FLOAT', 'DBR_ENUM',
+                  'DBR_CHAR', 'DBR_LONG', 'DBR_DOUBLE')
+CATALOG_FIELDS = ('pv_name', 'datatype', 'value_shape', 'first_stored_event',
+                  'last_stored_event', 'stored_events')
 
 
 def _query(command, sql):
@@ -50,7 +53,6 @@ def refresh_catalog(command, output_path=DEFAULT_CATALOG_PATH, timezone_name='Am
     ranges = _query(command, ' UNION ALL '.join(statements) + ';\n') if statements else []
     if len(ranges) != len(channels):
         raise ValueError('Incomplete catalog query result')
-    refreshed_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
     rows = []
     seen = set()
     for channel_id, first, last, count in ranges:
@@ -59,7 +61,11 @@ def refresh_catalog(command, output_path=DEFAULT_CATALOG_PATH, timezone_name='Am
             raise ValueError('Invalid catalog event range')
         seen.add(channel_id)
         name, datatype, size = channels[channel_id]
-        rows.append((name, datatype, size, _event_date(first, zone), _event_date(last, zone), count, refreshed_at))
+        if not 0 <= datatype < len(DATATYPE_NAMES) or size < 1:
+            raise ValueError(f'Unsupported datatype or element count for {name!r}')
+        shape = 'scalar' if size == 1 else f'array ({size} elements)'
+        rows.append((name, DATATYPE_NAMES[datatype], shape,
+                     _event_date(first, zone), _event_date(last, zone), count))
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
