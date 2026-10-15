@@ -9,8 +9,10 @@ import tempfile
 from pathlib import Path
 
 if __package__:
+    from .refresh_catalog import DEFAULT_CATALOG_PATH, refresh_catalog
     from .csv_to_sql import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
 else:
+    from refresh_catalog import DEFAULT_CATALOG_PATH, refresh_catalog
     from csv_to_sql import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
 
 _EVENT = re.compile(
@@ -165,11 +167,19 @@ def main():
     parser.add_argument("bundle", help="Generated SQL bundle directory")
     parser.add_argument("--runtime", choices=("docker", "podman"), default="docker")
     parser.add_argument("--compose-file", default="docker-compose.yml")
+    parser.add_argument("--catalog", default=str(DEFAULT_CATALOG_PATH), help="Output CSV catalog path")
     args = parser.parse_args()
     try:
-        import_bundle(args.bundle, mysql_command(args.runtime, args.compose_file))
+        command = mysql_command(args.runtime, args.compose_file)
+        import_bundle(args.bundle, command)
     except (ValueError, OSError, RuntimeError) as error:
         parser.exit(1, f"{error}\n")
+    try:
+        count = refresh_catalog(command, args.catalog)
+    except (ValueError, OSError, RuntimeError) as error:
+        parser.exit(1, f"Data import completed, but catalog refresh failed: {error}. "
+                    "The previous catalog was retained; run refresh_catalog.py after fixing the error.\n")
+    print(f"Published {count} PVs to {args.catalog}")
 
 
 if __name__ == "__main__":

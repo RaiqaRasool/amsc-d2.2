@@ -23,6 +23,9 @@ MYA_OUTPUT_DIR = "/mya-output"
 MYQUERY_PROTOCOL = os.environ.get("MYQUERY_PROTOCOL", "http")
 MYQUERY_SERVER = os.environ.get("MYQUERY_SERVER", "myquery:8080")
 MYA_DEPLOYMENT = os.environ.get("MYA_DEPLOYMENT", "docker")
+DEMO_CATALOG_PATH = os.environ.get(
+    "DEMO_CATALOG_PATH", os.path.join(BASE_DIR, "demo-catalog", "demo-catalog.csv")
+)
 WORKER_QUERY_TIMEOUT_SECONDS = positive_int_env("WORKER_QUERY_TIMEOUT_SECONDS", 3600)
 MAX_MYA_OUTPUT_BYTES = positive_int_env(
     "MAX_MYA_OUTPUT_BYTES",

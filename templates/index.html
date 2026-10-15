@@ -31,6 +31,11 @@
 
           <section class="panel">
             <h2>Query Maya</h2>
+            {% if demo_catalog_enabled %}
+              <p><a href="{{ url_for('demo_catalog') }}">Available demo data (CSV)</a></p>
+              <p><small>The catalog lists first and last stored events, not continuous coverage.
+                The latest value can carry forward across gaps.</small></p>
+            {% endif %}
 
             <div class="request-stack">
               <section class="subpanel">
@@ -81,7 +86,7 @@
                         </span>
                       </span>
                       <input name="mysampler_pvlist" maxlength="25699" required>
-                      <small>Demo limitation: Only PVs available for now are channel100, channel101, and channel102. Queries using other PVs will fail. More PVs, including examples listed in the help-icon spreadsheet, will be supported in the future.</small>
+                      <small>Use archived PV names. In demo mode, check the available demo data catalog above for PVs and stored event dates.</small>
                     </label>
                   </section>
 
@@ -111,7 +116,7 @@
                         </span>
                       </span>
                       <input name="interval_pvlist" maxlength="25699" disabled>
-                      <small>Demo limitation: Only PVs available for now are channel100, channel101, and channel102. Queries using other PVs will fail. More PVs, including examples listed in the help-icon spreadsheet, will be supported in the future.</small>
+                      <small>Use archived PV names. In demo mode, check the available demo data catalog above for PVs and stored event dates.</small>
                     </label>
                     <label class="checkbox-label field-wide">
                       <input type="checkbox" name="interval_prior_point" value="true" checked disabled>
@@ -145,7 +150,7 @@
                         </span>
                       </span>
                       <input name="mystats_pvlist" maxlength="25699" required disabled>
-                      <small>Demo limitation: Only PVs available for now are channel100, channel101, and channel102. Queries using other PVs will fail. More PVs, including examples listed in the help-icon spreadsheet, will be supported in the future.</small>
+                      <small>Use archived PV names. In demo mode, check the available demo data catalog above for PVs and stored event dates.</small>
                     </label>
                   </section>
 

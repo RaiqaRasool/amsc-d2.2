@@ -6,6 +6,37 @@ loads generated bundles into the demo database.
 
 The [behavioral contract](../../docs/demo-csv-import.md) records the agreed rules.
 
+## Copy-and-Paste Workflow
+
+Run from `globus-web-prototype/` with the demo database already running.
+Set the runtime once; the block reuses an existing SQL bundle or generates a new
+one, then imports it and automatically refreshes the catalog.
+
+```bash
+export CONTAINER_RUNTIME=podman   # Change to docker if needed
+export DEMO_SQL_BUNDLE=tools/demo_archive/generated/cebaf_linac_fe_2024
+
+# Convert all CSVs only when the output bundle does not already exist.
+if [ ! -d "$DEMO_SQL_BUNDLE" ]; then
+  python3 tools/demo_archive/csv_to_sql.py \
+    ../cebaf_linac_fe_2024 \
+    --output-dir "$DEMO_SQL_BUNDLE"
+fi &&
+
+# Import the bundle and automatically refresh the catalog.
+python3 tools/demo_archive/import_sql.py \
+  "$DEMO_SQL_BUNDLE" \
+  --runtime "$CONTAINER_RUNTIME"
+
+# Optional: refresh separately after manual database changes.
+# python3 tools/demo_archive/refresh_catalog.py --runtime "$CONTAINER_RUNTIME"
+```
+
+An existing bundle is a snapshot; it does not automatically include newly added
+CSVs. To convert an updated folder, choose a new `DEMO_SQL_BUNDLE` output directory
+and pass the previous bundle's `channels.json` with `--mapping` to preserve IDs.
+Identical database events are safely skipped on reimport.
+
 ## Generate a SQL Bundle
 
 From `globus-web-prototype/`, use the standard-library CLI:
@@ -170,3 +201,39 @@ known value, MySampler recreates the one-second samples and carries values after
 coverage ends, and MyStats returns the expected bin statistics. MySampler's
 interval parameter is in **milliseconds**: `1000` means one second. These checks
 exercise MyQuery HTTP endpoints, not the Flask/Globus delivery workflow.
+
+## Available Demo Data Catalog
+
+After a successful CLI import, `demo-catalog/demo-catalog.csv` is refreshed from
+all local demo-host channels currently in the database, including existing
+fixtures. The query page's **Available demo data (CSV)** link downloads it for
+logged-in users in demo mode. No further frontend edits are needed for new PVs.
+
+The columns are PV name, datatype code, element count, first/last stored events,
+stored event count, and refresh time. Event dates include America/New_York UTC
+offsets. These are stored event ranges, not continuous coverage or original
+source-file ranges; deduplication can make the last stored event earlier than
+the final sampled row. Latest values still carry forward across gaps.
+
+To refresh an existing database or after manual changes:
+
+```bash
+python3 tools/demo_archive/refresh_catalog.py --runtime podman
+```
+
+Use the same `--compose-file` as the database stack. Catalog files are ignored
+by Git. The default output is shared with the development web container through
+its source mount and the production web container through a read-only catalog
+mount. Refresh before starting the production web service so the host directory
+is present and writable by the operator.
+
+Custom locations use `import_sql.py --catalog PATH` or
+`refresh_catalog.py --output PATH`. Set the web app's `DEMO_CATALOG_PATH` to the
+corresponding absolute container path and supply a matching bind mount.
+
+Publication is atomic; failed refreshes retain the previous file. If the CLI
+reports that data import completed but catalog refresh failed, fix the reported
+error and run the refresh command. A failed/partial bundle import does not
+refresh automatically; refresh explicitly to show channels already committed.
+Run refresh while other archive writers are idle. Recreating or modifying the
+archive outside the import command also requires an explicit refresh.

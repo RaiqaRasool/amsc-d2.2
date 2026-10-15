@@ -12,12 +12,16 @@ from flask import (
     render_template,
     request,
     session,
+    send_file,
+    abort,
     url_for,
 )
 from globus_sdk.exc import GlobusAPIError
 
 from config import (
     COLLECTION_BROWSE_RATE_LIMITS,
+    DEMO_CATALOG_PATH,
+    MYA_DEPLOYMENT,
     COLLECTION_SEARCH_RATE_LIMITS,
     LOGIN_RATE_LIMITS,
     MAX_PENDING_JOBS_GLOBAL,
@@ -175,11 +179,26 @@ def index():
     return render_template(
         "index.html",
         logged_in=logged_in,
+        demo_catalog_enabled=MYA_DEPLOYMENT == "docker",
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
         jobs=[job_for_display(job) for job in list_jobs(globus_identity)],
     )
+
+
+@app.get("/demo-catalog.csv")
+def demo_catalog():
+    if not session.get("logged_in") or not session.get("globus_identity"):
+        return redirect(url_for("index"))
+    if MYA_DEPLOYMENT != "docker":
+        abort(404)
+    if not os.path.isfile(DEMO_CATALOG_PATH):
+        return "Demo catalog is not available yet. Ask the demo operator to refresh it.", 404
+    response = send_file(DEMO_CATALOG_PATH, mimetype="text/csv", as_attachment=True,
+                         download_name="demo-catalog.csv", conditional=False)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @app.get("/login")
@@ -456,6 +475,8 @@ def browse_collection(collection_id):
         f"identity:{globus_identity}",
         "collection_browse",
         COLLECTION_BROWSE_RATE_LIMITS,
+    DEMO_CATALOG_PATH,
+    MYA_DEPLOYMENT,
     )
     if limited is not None:
         return limited
