@@ -88,12 +88,12 @@ implemented, including an explicit repeat-safe demo database import command.
 - JSON mappings can be loaded and saved explicitly. Saving refuses to overwrite
   an existing file; later conversion must publish the extended mapping alongside
   generated output. Import-time database collision checks remain a later step.
-- Focused check: `.venv/bin/python -m unittest discover -s tests/demo_archive -p test_demo_csv_import.py`.
+- Focused check: `.venv/bin/python -m unittest discover -s tools/demo_archive/tests -p test_demo_csv_import.py`.
 
 ## Usage
 
 See [the demo archive tool README](../tools/demo_archive/README.md) for commands,
-output format, and current limitations. Tests remain under top-level `tests/`.
+output format, and current limitations. Tool tests are colocated in `tools/demo_archive/tests/`, as explicitly requested.
 
 ## Implemented Import Command
 
@@ -111,4 +111,17 @@ output format, and current limitations. Tests remain under top-level `tests/`.
 - Verified initial import, repeat import, later-file append, event conflicts,
   incompatible metadata/schema, and ID collisions against an isolated
   `jeffersonlab/mycontainer:2.0.0` container. Approved CSVs and application
-  databases were not used. End-to-end MyQuery checks remain the next step.
+  databases were not used for those importer checks.
+- End-to-end MyQuery validation is implemented in
+  `tools/demo_archive/tests/test_myquery_integration.py`. It reads only five rows and
+  the first two PV columns from the approved May 14 CSV into a temporary subset.
+  Against pinned MYA 2.0.0 and MyQuery 6.3.2, all five query types passed:
+  Channel metadata, Interval change events, Point after coverage ends,
+  MySampler reconstruction, and one-bin MyStats min/max/mean/duration.
+- Identical reimport inserted zero events, and project fixtures 100–102 remained
+  discoverable. No full approved file was read or loaded. MyQuery is exercised
+  directly over HTTP; Flask/Globus delivery is outside this tool validation.
+- MySampler interval is milliseconds (`1000` for one second). The short
+  one-second-source test verifies statistics against time-weighted sample values;
+  MyStats event counters can include generated boundary events and must not be
+  interpreted as a raw stored-row count.

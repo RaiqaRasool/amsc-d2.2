@@ -94,10 +94,48 @@ publish database ports, expose credentials in arguments, or start services.
 Run from `globus-web-prototype/`:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests/demo_archive -p "test_*.py"
+.venv/bin/python -m unittest discover -s tools/demo_archive/tests -p "test_*.py"
 ```
 
 The database integration test is opt-in. Set `DEMO_IMPORT_TEST_CONTAINER` to the
 name of a fresh disposable `mya-import-test-*` container running the pinned
 image, then run `test_import_sql_integration.py`. The test writes channel ID
 1000 and must never target a shared or application database.
+
+## MyQuery End-to-End Check
+
+`tools/demo_archive/tests/test_myquery_integration.py` reads only five rows and two PV
+columns from `cebaf_linac_fe_2024/data-2024-05-14.csv`. It converts and imports
+that temporary subset, repeats the import, and checks all five MyQuery endpoints.
+The test also installs the existing sample fixtures and confirms they remain
+visible. It cleans up its test channels and tables when finished.
+
+Run only against a fresh disposable database and query service. For example,
+from `globus-web-prototype/`, start an isolated stack with no published ports:
+
+```bash
+docker network create mya-import-test-e2e
+docker run -d --name mya-import-test-e2e-db --network mya-import-test-e2e --network-alias mya -e MYSQL_ROOT_PASSWORD=password -e MYSQL_PASSWORD=password -e TZ=America/New_York jeffersonlab/mycontainer:2.0.0
+docker run -d --name mya-import-test-e2e-query --network mya-import-test-e2e -e TZ=America/New_York -v "$PWD/docker/demo-archive/myquery/context.xml:/usr/local/tomcat/conf/context.xml:ro" -v "$PWD/docker/demo-archive/myquery/deployment.properties:/usr/local/tomcat/lib/deployment.properties:ro" jeffersonlab/myquery:6.3.2
+```
+
+Once both services are ready:
+
+```bash
+DEMO_QUERY_TEST_DB=mya-import-test-e2e-db DEMO_QUERY_TEST_CONTAINER=mya-import-test-e2e-query .venv/bin/python -m unittest discover -s tools/demo_archive/tests -p test_myquery_integration.py
+```
+
+The environment names must start with `mya-import-test-`; do not point them at
+application services. Stop and remove the disposable containers/volumes and
+network afterward:
+
+```bash
+docker rm -f -v mya-import-test-e2e-query mya-import-test-e2e-db
+docker network rm mya-import-test-e2e
+```
+
+Verified with the pinned images: Interval retains changes, Point carries the last
+known value, MySampler recreates the one-second samples and carries values after
+coverage ends, and MyStats returns the expected bin statistics. MySampler's
+interval parameter is in **milliseconds**: `1000` means one second. These checks
+exercise MyQuery HTTP endpoints, not the Flask/Globus delivery workflow.
