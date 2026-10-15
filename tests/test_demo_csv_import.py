@@ -1,9 +1,11 @@
+import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from demo_csv_import import (
-    extend_channel_mapping, load_channel_mapping, save_channel_mapping, to_mya_timestamp,
+    convert_csv, extend_channel_mapping, load_channel_mapping, save_channel_mapping, to_mya_timestamp,
 )
 
 
@@ -60,6 +62,99 @@ class DemoCsvFormatTests(unittest.TestCase):
                 extend_channel_mapping([], mapping)
         with self.assertRaises(ValueError):
             extend_channel_mapping(["pv", "pv"])
+
+
+class DemoCsvConversionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.directory = Path(self.temp.name)
+        self.source = self.directory / "samples.csv"
+        self.output = self.directory / "sql"
+
+    def write_csv(self, rows, header=("Date", "pvA", "pvB")):
+        with self.source.open("w", newline="") as output:
+            writer = csv.writer(output)
+            writer.writerow(header)
+            writer.writerows(rows)
+
+    def test_independent_changes_and_return_to_previous_value(self):
+        self.write_csv([
+            ["2024-05-09 08:53:00", "0", "5"],
+            ["2024-05-09 08:53:01", "0.000", "6"],
+            ["2024-05-09 08:53:02", "1", "6"],
+            ["2024-05-09 08:53:03", "0", "6"],
+        ])
+        self.assertEqual({"pvA": 3, "pvB": 2}, convert_csv(self.source, self.output))
+        sql = (self.output / "1000_channel.sql").read_text()
+        self.assertIn("CREATE TABLE `table_1000`", sql)
+        self.assertIn("`val1` FLOAT", sql)
+        self.assertIn(f"VALUES ({to_mya_timestamp('2024-05-09 08:53:02')}, 0, 1)", sql)
+        self.assertNotIn(str(to_mya_timestamp("2024-05-09 08:53:01")), sql)
+        self.assertEqual(3, sql.count("INSERT INTO `table_1000`"))
+        summary = json.loads((self.output / "summary.json").read_text())
+        self.assertEqual(4, summary["rows"])
+        self.assertEqual({"pvA": 3, "pvB": 2}, summary["events_per_pv"])
+
+    def test_reuse_mapping_and_keep_first_value_after_gap(self):
+        self.write_csv([["2024-05-09 08:53:00", "1", "2"]])
+        convert_csv(self.source, self.output)
+        mapping = self.output / "channels.json"
+        later = self.directory / "later"
+        self.write_csv([["2024-05-19 08:53:00", "2", "1"]], ("Date", "pvB", "pvA"))
+        self.assertEqual({"pvB": 1, "pvA": 1}, convert_csv(self.source, later, mapping))
+        self.assertEqual(load_channel_mapping(mapping), load_channel_mapping(later / "channels.json"))
+        sql = (later / "1000_channel.sql").read_text()
+        self.assertEqual(1, sql.count("INSERT INTO `table_1000`"))
+        self.assertIn(f"VALUES ({to_mya_timestamp('2024-05-19 08:53:00')}, 0, 1)", sql)
+        self.assertNotIn("unavailable", sql)
+
+    def test_identical_duplicate_timestamp_is_skipped(self):
+        self.write_csv([["2024-05-09 08:53:00", "1", "2"],
+                        ["2024-05-09 08:53:00", "1.0", "2.0"]])
+        self.assertEqual({"pvA": 1, "pvB": 1}, convert_csv(self.source, self.output))
+
+    def test_failure_does_not_publish_partial_output(self):
+        bad_rows = [
+            ["2024-05-09 08:53:01", "", "2"],
+            ["2024-05-09 08:53:01", "NaN", "2"],
+            ["2024-05-09 08:53:01", "Infinity", "2"],
+            ["2024-05-09 08:53:01", "1e100", "2"],
+            ["2024-05-09 08:53:01", "1e-100", "2"],
+            ["2024-05-09 08:53:00", "3", "2"],
+            ["2024-05-09 08:52:59", "1", "2"],
+            ["bad", "1", "2"],
+            ["2024-05-09 08:53:01", "1"],
+        ]
+        for row in bad_rows:
+            with self.subTest(row=row):
+                self.write_csv([["2024-05-09 08:53:00", "1", "2"], row])
+                with self.assertRaisesRegex(ValueError, "row 3"):
+                    convert_csv(self.source, self.output)
+                self.assertFalse(self.output.exists())
+                self.assertEqual([], list(self.directory.glob(".demo-csv-*")))
+
+    def test_headers_empty_input_and_existing_output(self):
+        for header in (("Time", "pv"), ("Date", "pv", "pv"), ("Date", "channel100")):
+            with self.subTest(header=header):
+                self.write_csv([], header)
+                with self.assertRaises(ValueError):
+                    convert_csv(self.source, self.output)
+        self.write_csv([])
+        with self.assertRaisesRegex(ValueError, "no measurement rows"):
+            convert_csv(self.source, self.output)
+        self.output.mkdir()
+        with self.assertRaises(FileExistsError):
+            convert_csv(self.source, self.output)
+
+    def test_pv_name_never_becomes_sql_or_filename(self):
+        name = "../pv'; DROP TABLE channels; --"
+        self.write_csv([["2024-05-09 08:53:00", "1"]], ("Date", name))
+        convert_csv(self.source, self.output)
+        sql = (self.output / "1000_channel.sql").read_text()
+        self.assertIn(name.encode().hex(), sql)
+        self.assertNotIn("DROP TABLE", sql)
+        self.assertEqual({name: 1000}, load_channel_mapping(self.output / "channels.json"))
 
 
 if __name__ == "__main__":
