@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tools.demo_archive.demo_csv_import import convert_csv
+from tools.demo_archive.csv_to_sql import convert_csv
 from tools.demo_archive.import_sql import (
     import_bundle, mysql_command, validate_bundle, write_import_sql,
 )

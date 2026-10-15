@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
-from tools.demo_archive.demo_csv_import import convert_csv
+from tools.demo_archive.csv_to_sql import convert_csv
 from tools.demo_archive.import_sql import import_bundle
 
 DB = os.environ.get('DEMO_QUERY_TEST_DB', '')

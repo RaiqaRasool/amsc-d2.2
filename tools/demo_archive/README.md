@@ -11,7 +11,7 @@ The [behavioral contract](../../docs/demo-csv-import.md) records the agreed rule
 From `globus-web-prototype/`, use the standard-library CLI:
 
 ```bash
-python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-05-09.csv --output-dir /tmp/demo-mya-may09
+python3 tools/demo_archive/csv_to_sql.py ../cebaf_linac_fe_2024/data-2024-05-09.csv --output-dir /tmp/demo-mya-may09
 ```
 
 The single-file example is optional. To convert all CSVs in a folder together,
@@ -23,7 +23,7 @@ the converter keeps one output file open per PV. It does not query a database.
 For the next CSV, reuse the previous mapping and choose a new output directory:
 
 ```bash
-python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-05-14.csv --mapping /tmp/demo-mya-may09/channels.json --output-dir /tmp/demo-mya-may14
+python3 tools/demo_archive/csv_to_sql.py ../cebaf_linac_fe_2024/data-2024-05-14.csv --mapping /tmp/demo-mya-may09/channels.json --output-dir /tmp/demo-mya-may14
 ```
 
 - Each input CSV must have nondecreasing timestamps; equal encoded timestamps
@@ -55,7 +55,7 @@ python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-0
 ## Convert a Folder into One Combined Bundle
 
 ```bash
-python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024 --output-dir tools/demo_archive/generated/cebaf_linac_fe_2024
+python3 tools/demo_archive/csv_to_sql.py ../cebaf_linac_fe_2024 --output-dir tools/demo_archive/generated/cebaf_linac_fe_2024
 ```
 
 - Finds `.csv` files (case-insensitive) directly inside the folder, without

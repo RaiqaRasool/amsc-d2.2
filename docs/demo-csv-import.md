@@ -73,7 +73,7 @@ implemented, including an explicit repeat-safe demo database import command.
 
 ## Implemented Format Helpers
 
-- `tools/demo_archive/demo_csv_import.py` encodes Unix seconds in the upper bits and binary
+- `tools/demo_archive/csv_to_sql.py` encodes Unix seconds in the upper bits and binary
   fractional seconds in the low 28 bits, using integer arithmetic and truncation.
   Timestamp text supports up to nine fractional digits and explicit UTC offsets.
 - Naive dates use America/New_York; unresolved DST gaps and repeated hours fail.
@@ -88,7 +88,7 @@ implemented, including an explicit repeat-safe demo database import command.
 - JSON mappings can be loaded and saved explicitly. Saving refuses to overwrite
   an existing file; later conversion must publish the extended mapping alongside
   generated output. Import-time database collision checks remain a later step.
-- Focused check: `.venv/bin/python -m unittest discover -s tools/demo_archive/tests -p test_demo_csv_import.py`.
+- Focused check: `.venv/bin/python -m unittest discover -s tools/demo_archive/tests -p test_csv_to_sql.py`.
 
 ## Usage
 

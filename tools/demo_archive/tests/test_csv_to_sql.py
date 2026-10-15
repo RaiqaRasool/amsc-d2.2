@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.demo_archive.demo_csv_import import (
+from tools.demo_archive.csv_to_sql import (
     channel_sql_filename, convert_csv, extend_channel_mapping, load_channel_mapping, save_channel_mapping, to_mya_timestamp,
 )
 

@@ -9,9 +9,9 @@ import tempfile
 from pathlib import Path
 
 if __package__:
-    from .demo_csv_import import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
+    from .csv_to_sql import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
 else:
-    from demo_csv_import import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
+    from csv_to_sql import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
 
 _EVENT = re.compile(
     r"INSERT INTO `table_(\d+)` \(`time`, `code`, `val1`\) VALUES \((\d+), 0, ([^;]+)\);\n?"

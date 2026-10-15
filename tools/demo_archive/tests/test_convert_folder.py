@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.demo_archive.demo_csv_import import convert_folder, load_channel_mapping
+from tools.demo_archive.csv_to_sql import convert_folder, load_channel_mapping
 from tools.demo_archive.import_sql import validate_bundle, validated_events
 
 
