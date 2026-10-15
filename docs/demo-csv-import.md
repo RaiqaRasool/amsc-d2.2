@@ -125,3 +125,19 @@ output format, and current limitations. Tool tests are colocated in `tools/demo_
   one-second-source test verifies statistics against time-weighted sample values;
   MyStats event counters can include generated boundary events and must not be
   interpreted as a raw stored-row count.
+
+## Folder Conversion
+
+- A directory input streams its immediate CSV files sequentially with one shared
+  mapping, then merges generated events into one SQL file per PV in timestamp
+  order. Each file retains its first sample. Column sets may differ.
+- The initial folder mode rejects overlapping/touching file ranges; it does not
+  attempt to reconstruct or reconcile overlapping sampled histories. Invalid
+  input leaves no published bundle. The output includes combined/source summaries.
+- Generated artifacts live under the Git-ignored `tools/demo_archive/generated/`
+  directory. Folder tests cover shared/new PVs, reordered columns, filename/time
+  ordering, mapping reuse, invalid input, and overlap rejection.
+- Validated the complete approved folder on 2026-10-15: three CSVs, 9,395
+  sampled rows, 226 PVs, and 303,146 retained events. The generated combined
+  bundle passed importer validation (about 28 MB of SQL). No database import
+  was performed in this step.

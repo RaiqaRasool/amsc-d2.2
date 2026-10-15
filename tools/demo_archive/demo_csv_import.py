@@ -5,6 +5,8 @@ import csv
 import json
 import math
 import struct
+import shutil
+import io
 import tempfile
 from contextlib import ExitStack
 from decimal import Decimal, InvalidOperation
@@ -162,6 +164,7 @@ def convert_csv(csv_path, output_dir, mapping_path=None, timezone_name="America/
                     )
                     _write_channel_schema(outputs[name], name, mapping[name])
                 previous_time, previous_values = None, None
+                first_time = None
                 rows = 0
                 for row in reader:
                     location = f"{csv_path}: row {reader.line_num}"
@@ -190,6 +193,8 @@ def convert_csv(csv_path, output_dir, mapping_path=None, timezone_name="America/
                                 f"VALUES ({timestamp}, 0, {value if value else 0});\n"
                             )
                             counts[name] += 1
+                    if first_time is None:
+                        first_time = timestamp
                     previous_time, previous_values = timestamp, values
                     rows += 1
                 if rows == 0:
@@ -199,6 +204,7 @@ def convert_csv(csv_path, output_dir, mapping_path=None, timezone_name="America/
                 "source": csv_path.name, "timezone": timezone_name,
                 "synthetic_metadata": True, "rows": rows, "events_per_pv": counts,
                 "storage": "FLOAT", "event_code": 0,
+                "first_timestamp": first_time, "last_timestamp": previous_time,
             }, indent=2) + "\n", encoding="utf-8")
             if output_dir.exists():
                 raise FileExistsError(f"Output directory already exists: {output_dir}")
@@ -206,15 +212,85 @@ def convert_csv(csv_path, output_dir, mapping_path=None, timezone_name="America/
     return counts
 
 
+
+def convert_folder(csv_dir, output_dir, mapping_path=None, timezone_name="America/New_York"):
+    """Combine non-overlapping CSV runs into one per-PV SQL bundle.
+
+    Files are converted sequentially with a shared mapping, then merged by time.
+    Overlapping ranges are refused rather than guessing at sampled-history conflicts.
+    """
+    csv_dir, output_dir = Path(csv_dir), Path(output_dir)
+    sources = sorted(path for path in csv_dir.iterdir()
+                     if path.is_file() and path.suffix.lower() == ".csv")
+    if not sources:
+        raise ValueError(f"{csv_dir}: no CSV files found")
+    if output_dir.exists():
+        raise FileExistsError(f"Output directory already exists: {output_dir}")
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".demo-folder-", dir=output_dir.parent) as staging:
+        staging = Path(staging)
+        runs = []
+        current_mapping = mapping_path
+        for index, source in enumerate(sources):
+            run_dir = staging / f"run-{index}"
+            convert_csv(source, run_dir, current_mapping, timezone_name)
+            current_mapping = run_dir / "channels.json"
+            summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+            runs.append((summary, run_dir))
+        runs.sort(key=lambda run: run[0]["first_timestamp"])
+        for previous, current in zip(runs, runs[1:]):
+            if current[0]["first_timestamp"] <= previous[0]["last_timestamp"]:
+                raise ValueError(
+                    f"Overlapping CSV time ranges: {previous[0]['source']} and {current[0]['source']}; "
+                    "convert/import separately to diagnose event conflicts"
+                )
+        mapping = load_channel_mapping(current_mapping)
+        counts = {}
+        for summary, _ in runs:
+            for name, count in summary["events_per_pv"].items():
+                counts[name] = counts.get(name, 0) + count
+        bundle = staging / "bundle"
+        bundle.mkdir()
+        # Only one final output is open at a time, and copying is chunked.
+        for name in sorted(counts):
+            channel_id = mapping[name]
+            filename = f"{channel_id}_channel.sql"
+            schema = io.StringIO()
+            _write_channel_schema(schema, name, channel_id)
+            header = schema.getvalue()
+            with (bundle / filename).open("w", encoding="utf-8") as output:
+                output.write(header)
+                for summary, run_dir in runs:
+                    if name in summary["events_per_pv"]:
+                        with (run_dir / filename).open(encoding="utf-8") as source:
+                            if source.read(len(header)) != header:
+                                raise ValueError(f"Inconsistent generated schema for {name!r}")
+                            shutil.copyfileobj(source, output)
+        save_channel_mapping(bundle / "channels.json", mapping)
+        summary = {
+            "sources": [run[0] for run in runs], "timezone": timezone_name,
+            "synthetic_metadata": True, "rows": sum(run[0]["rows"] for run in runs),
+            "events_per_pv": counts, "storage": "FLOAT", "event_code": 0,
+            "first_timestamp": runs[0][0]["first_timestamp"],
+            "last_timestamp": runs[-1][0]["last_timestamp"],
+        }
+        (bundle / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+        if output_dir.exists():
+            raise FileExistsError(f"Output directory already exists: {output_dir}")
+        bundle.rename(output_dir)
+    return counts
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("csv", help="MySampler CSV with Date and scalar numeric PV columns")
+    parser.add_argument("csv", help="MySampler CSV or folder of CSVs (non-recursive)")
     parser.add_argument("--output-dir", required=True, help="New directory for generated SQL bundle")
     parser.add_argument("--mapping", help="Previous bundle's channels.json; reuse for later CSVs")
     parser.add_argument("--timezone", default="America/New_York")
     args = parser.parse_args()
     try:
-        counts = convert_csv(args.csv, args.output_dir, args.mapping, args.timezone)
+        converter = convert_folder if Path(args.csv).is_dir() else convert_csv
+        counts = converter(args.csv, args.output_dir, args.mapping, args.timezone)
     except (ValueError, OSError, KeyError, csv.Error) as error:
         parser.exit(1, f"Conversion failed: {error}\n")
     print(f"Generated {len(counts)} channel SQL files with {sum(counts.values())} events in {args.output_dir}")

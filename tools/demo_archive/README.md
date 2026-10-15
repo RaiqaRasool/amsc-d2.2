@@ -14,8 +14,8 @@ From `globus-web-prototype/`, use the standard-library CLI:
 python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-05-09.csv --output-dir /tmp/demo-mya-may09
 ```
 
-This command is an example; the approved datasets have not been converted as
-part of development. Each output bundle has `<channel_id>_channel.sql` files,
+The single-file example is optional. To convert all CSVs in a folder together,
+use the folder command below. Each output bundle has `<channel_id>_channel.sql` files,
 `channels.json`, and `summary.json` with source name and per-PV event counts.
 Source CSVs are read row by row, with memory proportional to the column count;
 the converter keeps one output file open per PV. It does not query a database.
@@ -26,8 +26,8 @@ For the next CSV, reuse the previous mapping and choose a new output directory:
 python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-05-14.csv --mapping /tmp/demo-mya-may09/channels.json --output-dir /tmp/demo-mya-may14
 ```
 
-- Each conversion accepts one CSV. Timestamps must be nondecreasing; equal
-  encoded timestamps with identical values are skipped, and conflicts fail.
+- Each input CSV must have nondecreasing timestamps; equal encoded timestamps
+  with identical values are skipped, and conflicts fail.
   Cross-file/database conflict checking is performed by the import command.
 - Output is staged in a temporary sibling directory and published only after
   validation completes. Existing output directories are refused.
@@ -46,6 +46,32 @@ python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-0
 - Generated SQL uses plain INSERT/CREATE statements for initial loading.
   Use the importer below for later bundles and reruns; do not pipe raw SQL
   files over existing channels.
+
+## Convert a Folder into One Combined Bundle
+
+```bash
+python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024 --output-dir tools/demo_archive/generated/cebaf_linac_fe_2024
+```
+
+- Finds `.csv` files (case-insensitive) directly inside the folder, without
+  recursing into subfolders. Files are streamed sequentially, using a shared
+  channel mapping; they are not processed in parallel.
+- Produces one final SQL file per PV across all input files. Shared PVs use the
+  same channel ID and table; different timestamps are combined in time order.
+  Columns may differ between CSVs. Each file's first measurement is retained.
+- Sorts runs by their actual first timestamp, not filename. This initial folder
+  mode rejects overlapping or touching input time ranges, even if their data
+  might be identical, rather than silently reconciling sampled histories.
+  Separate-bundle imports check conflicts between retained events only; they
+  cannot detect conflicting sampled values that were dropped by deduplication.
+- Rejects invalid input without publishing the final bundle. Intermediate
+  per-file bundles are temporary and cleaned up. Disk usage includes these
+  intermediate SQL files plus the final bundle; source data is never modified.
+- Reuse `--mapping PATH/channels.json` when adding another batch later. The
+  output directory must be new. Generated bundles under this tool's `generated/`
+  directory are ignored by Git.
+- `summary.json` records source files, their ranges/counts, and combined event
+  counts. The existing importer accepts this combined bundle unchanged.
 
 ## Import a Bundle
 

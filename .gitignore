@@ -6,3 +6,4 @@ __pycache__/
 mya-output/
 *.sqlite3
 instance/
+tools/demo_archive/generated/
