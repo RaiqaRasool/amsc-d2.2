@@ -79,6 +79,10 @@ The query form provides one tab for each supported query type:
 - **Point**: channel and point-in-time lookup
 - **Channel**: channel-name pattern search
 
+Completed results have Preview and Download actions in the history table, alongside
+Globus links. Previews show a bounded portion of the result; downloads stream the
+complete export. Both require the job owner's login and follow existing retention.
+
 MySampler, Interval, and MyStats results are exported as CSV. Point and Channel
 results are exported as JSON. Every export receives a generated UUID filename
 so concurrent and repeated jobs do not overwrite one another.

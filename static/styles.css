@@ -551,3 +551,10 @@ th {
     align-items: stretch;
   }
 }
+
+.result-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 32rem;
+  overflow: auto;
+}

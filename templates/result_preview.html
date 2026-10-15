@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Query result preview — AmSC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <header class="topbar"><div class="topbar-inner">
+      <h1 class="brand">Query result preview</h1>
+      <a class="topbar-link" href="{{ url_for('index') }}">Back to queries</a>
+    </div></header>
+    <main class="container"><section class="panel result-preview">
+      <h2>{{ filename }}</h2>
+      <p>{{ size }} bytes · {{ job.query_type }}</p>
+      <details><summary>Query parameters</summary><pre>{{ job.query_params|tojson(indent=2) }}</pre></details>
+      <p><a href="{{ url_for('job_download', job_id=job.job_id) }}">Download complete result</a></p>
+      <p>This is a partial preview: at most 100 CSV rows, 50 columns, and 256 KiB of file content.
+        Long cells are shortened to 500 characters. Download the complete result for all data.</p>
+      {% if preview.limited %}<p>One or more preview limits were reached.</p>{% endif %}
+      {% if preview.text is not none %}
+        <pre>{{ preview.text }}</pre>
+      {% else %}
+        <p>Showing {{ preview.rows|length }} rows.</p>
+        <div class="table-wrap"><table>
+          <thead><tr>{% for header in preview.headers %}<th scope="col">{{ header }}</th>{% endfor %}</tr></thead>
+          <tbody>{% for row in preview.rows %}<tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>
+            {% else %}<tr><td>No complete rows available in this preview.</td></tr>{% endfor %}</tbody>
+        </table></div>
+      {% endif %}
+    </section></main>
+  </body>
+</html>

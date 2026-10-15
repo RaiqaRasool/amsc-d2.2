@@ -52,6 +52,7 @@ from jobs import (
 )
 from oauth_states import consume_oauth_state, store_oauth_state
 from query_validation import validate_query_params
+from result_preview import open_export, preview_export
 from rate_limits import RateLimitExceeded, record_request
 from token_cleanup import cleanup_token_reference_if_ready
 from web_validation import (
@@ -144,6 +145,12 @@ def job_for_display(job):
         else None
     )
     display_job["task_url"] = globus_task_url(display_job.get("globus_task_id"))
+    display_job["preview_url"] = (
+        url_for("job_preview", job_id=display_job["job_id"]) if source_path else None
+    )
+    display_job["download_url"] = (
+        url_for("job_download", job_id=display_job["job_id"]) if source_path else None
+    )
     return display_job
 
 
@@ -590,6 +597,52 @@ def reset_destination():
     session.pop("destination_collection_name", None)
     session.pop("destination_path", None)
     return redirect(url_for("index"))
+
+
+def owned_export_job(job_id):
+    identity = session.get("globus_identity")
+    if not session.get("logged_in") or not identity:
+        abort(401)
+    job = get_job_for_identity(job_id, identity)
+    if job is None:
+        abort(404)
+    return job
+
+
+@app.get("/jobs/<job_id>/preview")
+def job_preview(job_id):
+    job = owned_export_job(job_id)
+    try:
+        source, filename, size = open_export(job)
+        with source:
+            preview = preview_export(source, filename)
+    except OSError:
+        return "This result is not available. It may still be running or may have expired.", 404
+    response = app.make_response(render_template(
+        "result_preview.html", job=job, filename=filename, size=size, preview=preview,
+    ))
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@app.get("/jobs/<job_id>/download")
+def job_download(job_id):
+    job = owned_export_job(job_id)
+    try:
+        source, filename, size = open_export(job)
+    except OSError:
+        return "This result is not available. It may still be running or may have expired.", 404
+    try:
+        response = send_file(source, as_attachment=True, download_name=filename,
+                             mimetype="text/csv" if filename.endswith(".csv") else "application/json",
+                             conditional=False)
+    except BaseException:
+        source.close()
+        raise
+    response.content_length = size
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @app.get("/jobs/<job_id>")

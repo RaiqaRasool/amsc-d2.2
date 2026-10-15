@@ -42,6 +42,12 @@
                   {% else %}
                     <code>{{ job.export_name }}</code>
                   {% endif %}
+                  <br>
+                  <a href="{{ job.preview_url }}" target="_blank" rel="noopener noreferrer">Preview</a>
+                  · <a href="{{ job.download_url }}">Download</a>
+                  {% if job.export_url %}
+                    · <a href="{{ job.export_url }}" target="_blank" rel="noopener noreferrer">Open in Globus</a>
+                  {% endif %}
                 {% else %}
                   <span>-</span>
                 {% endif %}
