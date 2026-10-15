@@ -14,22 +14,22 @@
 {% if jobs %}
   <section class="panel">
     <div class="section-header">
-      <h2>Jobs</h2>
+      <h2>History</h2>
       <form action="{{ url_for('index') }}" method="get">
         <button type="submit" class="button-secondary">Refresh statuses</button>
       </form>
     </div>
     <div class="table-wrap">
-      <table>
+      <table class="history-table">
         <thead>
           <tr>
-            <th>Job ID</th>
+            <th>Submitted job</th>
             <th>Status</th>
-            <th>Export</th>
+            <th>Generated File</th>
             <th>Transfer Label</th>
             <th>Destination</th>
-            <th>Task ID</th>
-            <th>Updated</th>
+            <th>Globus Transfer</th>
+            <th>Updated (New York)</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -38,29 +38,23 @@
             <tr>
               <td>
                 <a href="{{ url_for('job_status', job_id=job.job_id) }}" target="_blank" rel="noopener noreferrer">
-                  <code>{{ job.job_id }}</code>
+                  <code title="{{ job.job_id }}">{{ job.job_id[:8] }}…</code>
                 </a>
               </td>
               <td>
-                <code class="job-status {{ job.status_class }}">{{ job.status }}</code>
+                <code class="job-status {{ job.status_class }}">{{ job.status_label }}</code>
                 {% if job.error_message %}
                   <br><span class="helper-error">{{ job.error_message }}</span>
                 {% endif %}
               </td>
               <td>
                 {% if job.export_name %}
-                  {% if job.export_url %}
-                    <a href="{{ job.export_url }}" target="_blank" rel="noopener noreferrer">
-                      <code>{{ job.export_name }}</code>
-                    </a>
-                  {% else %}
-                    <code>{{ job.export_name }}</code>
-                  {% endif %}
+                  <code class="history-file" title="{{ job.export_name }}">{{ job.export_name }}</code>
                   <br>
                   <a href="{{ job.preview_url }}" target="_blank" rel="noopener noreferrer">Preview</a>
                   · <a href="{{ job.download_url }}">Download</a>
                   {% if job.export_url %}
-                    · <a href="{{ job.export_url }}" target="_blank" rel="noopener noreferrer">Open in Globus</a>
+                    · <a href="{{ job.export_url }}" target="_blank" rel="noopener noreferrer">Browse source folder in Globus</a>
                   {% endif %}
                 {% else %}
                   <span>-</span>
@@ -75,14 +69,10 @@
               </td>
               <td>
                 {% if job.destination_path %}
+                  <span class="history-collection">{{ job.destination_collection_name or "Unknown collection" }}</span>
+                  <code class="history-path" title="{{ job.destination_folder }}">{{ job.destination_folder }}</code>
                   {% if job.destination_url %}
-                    <a href="{{ job.destination_url }}" target="_blank" rel="noopener noreferrer">
-                      <strong>Collection:</strong> {{ job.destination_collection_name or "Unknown collection" }}<br>
-                      <strong>Path:</strong> <code>{{ job.destination_path }}</code>
-                    </a>
-                  {% else %}
-                    <strong>Collection:</strong> {{ job.destination_collection_name or "Unknown collection" }}<br>
-                    <strong>Path:</strong> <code>{{ job.destination_path }}</code>
+                    <a href="{{ job.destination_url }}" target="_blank" rel="noopener noreferrer">Browse destination in Globus</a>
                   {% endif %}
                 {% else %}
                   <span>-</span>
@@ -90,14 +80,13 @@
               </td>
               <td>
                 {% if job.globus_task_id %}
-                  <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer">
-                    <code>{{ job.globus_task_id }}</code>
-                  </a>
+                  <a href="{{ job.task_url }}" target="_blank" rel="noopener noreferrer" title="Globus transfer ID: {{ job.globus_task_id }}">View transfer</a>
+                  <code class="helper" title="{{ job.globus_task_id }}">{{ job.globus_task_id[:8] }}…</code>
                 {% else %}
                   <span>-</span>
                 {% endif %}
               </td>
-              <td>{{ job.updated_at }}</td>
+              <td class="history-updated"><time datetime="{{ job.updated_at }}" title="{{ job.updated_at }}">{{ job.updated_date }}<span>{{ job.updated_time }}</span></time></td>
               <td class="job-actions">{% if job.query_type == 'transfer' %}
                 {% if job.can_transfer %}
                   {{ job_action(url_for('index', transfer=job.job_id), 'Retry transfer', 'retry') }}

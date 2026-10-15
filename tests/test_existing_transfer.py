@@ -39,6 +39,17 @@ with client.session_transaction() as session:
                    destination_collection_id=collection, destination_path='/dest',
                    destination_collection_name='Destination', destination_selection_id='proof')
 with patch.object(module, 'transfer_client', return_value=MagicMock()), patch.object(module, 'rate_limit_response', return_value=None):
+    with module.app.test_request_context('/'):
+        display = module.job_for_display(dict(jobs.get_job('original'), updated_at='2026-10-15T19:47:37Z',
+            destination_path='/dest/' + filename, destination_collection_id=collection,
+            globus_task_id='87654321-1234-1234-1234-123456789abc'))
+        assert display['destination_folder'] == '/dest'
+        assert display['updated_date'] == '2026-10-15'
+        assert display['updated_time'] == '15:47:37 EDT (UTC-0400)'
+        history = module.render_template('_jobs.html', jobs=[display])
+        assert 'Submitted job' in history and 'Globus transfer' in history
+        assert 'Browse source folder in Globus' in history and 'View transfer' in history
+        assert 'Path:</strong>' not in history
     page = client.get('/?transfer=original')
     assert page.status_code == 200 and b'Transfer existing output' in page.data
     assert b'Transfer file' in page.data and b'formnovalidate' in page.data

@@ -16,6 +16,12 @@ Transfer a retained query result without rerunning MYA.
 
 ## Expected Behavior
 
+- History distinguishes Submitted job IDs from Globus transfer IDs. IDs are abbreviated
+  with full values in tooltips; View transfer opens the Globus task. File links
+  explicitly browse source/destination folders. Destinations show the collection
+  and folder rather than repeating the exported filename. Long names and paths
+  are ellipsized with full-value tooltips. Update times show New York local date,
+  time, timezone abbreviation and UTC offset; raw timestamps remain unchanged.
 - History actions use icons with tooltips and accessible names for Run again,
   Transfer, and Retry transfer.
 

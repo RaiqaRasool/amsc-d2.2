@@ -4,6 +4,7 @@ import posixpath
 import secrets
 import uuid
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from itertools import islice
 
 from flask import (
@@ -137,6 +138,20 @@ def job_for_display(job):
     display_job["status_class"] = status_class(display_job["status"])
     source_path = display_job.get("source_path")
     destination_path = display_job.get("destination_path")
+    display_job["status_label"] = display_job["status"].replace("_", " ").capitalize()
+    display_job["destination_folder"] = (
+        posixpath.dirname(destination_path) or "/"
+        if destination_path and source_path and posixpath.basename(destination_path) == posixpath.basename(source_path)
+        else destination_path
+    )
+    try:
+        updated = datetime.fromisoformat(display_job["updated_at"].replace("Z", "+00:00"))
+        local = updated.astimezone(ZoneInfo("America/New_York"))
+        display_job["updated_date"] = local.strftime("%Y-%m-%d")
+        display_job["updated_time"] = local.strftime("%H:%M:%S %Z (UTC%z)")
+    except (ValueError, KeyError, TypeError):
+        display_job["updated_date"] = display_job.get("updated_at", "")
+        display_job["updated_time"] = ""
     display_job["export_name"] = (
         posixpath.basename(source_path) if source_path else None
     )
@@ -151,7 +166,7 @@ def job_for_display(job):
     display_job["destination_url"] = (
         globus_file_manager_url(
             display_job.get("destination_collection_id"),
-            posixpath.dirname(destination_path) or "/",
+            display_job["destination_folder"],
         )
         if destination_path
         else None

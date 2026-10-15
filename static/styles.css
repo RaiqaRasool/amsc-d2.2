@@ -707,3 +707,24 @@ th {
   vertical-align: middle;
   text-decoration: none;
 }
+
+.history-table td { vertical-align: top; }
+.history-table .history-file,
+.history-table .history-path {
+  display: block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-collection { display: block; font-weight: 600; margin-bottom: 4px; }
+.history-table .helper,
+.history-updated time span { display: block; color: var(--muted); font-size: 12px; }
+.history-updated { white-space: nowrap; }
+.history-table .helper-error { display: inline-block; max-width: 280px; overflow-wrap: anywhere; }
+.history-table td:nth-child(3) { min-width: 210px; }
+.history-table td:nth-child(5) { min-width: 200px; }
+
+.history-table td:first-child code,
+.history-table .job-status,
+.history-table td:nth-child(6) { white-space: nowrap; }
