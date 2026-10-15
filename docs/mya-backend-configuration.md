@@ -29,6 +29,15 @@ without changing query code.
   using `channel` and honors the prior-point checkbox; multiple PVs are queued
   using `pvlist` with prior points enabled, as required by the client.
   Existing queued jobs using either representation remain supported.
+- MyQuery timezone-less result timestamps are confirmed to represent
+  `America/New_York`. New CSV exports serialize their datetime index as ISO
+  timestamps with a per-date UTC offset, preserving local clock time and
+  fractional precision. MyStats localizes only its timestamp index level.
+- Point JSON event dates include the same explicit offset; Channel metadata has
+  no event timestamp conversion. Already-aware dates preserve their instant and
+  are converted to New York time. Client result objects are not mutated.
+- Preview, download, and Globus all read the same exported file. Existing
+  exports are not rewritten, and the preview notes this distinction.
 - Submitted jobs cannot override the application deployment.
 - The client does not fall back to another deployment when the configured
   deployment is unavailable.
@@ -39,6 +48,9 @@ without changing query code.
 - An unreachable MyQuery endpoint or unavailable deployment causes the query
   job to fail through the existing worker error path.
 - A failed sandbox query never retries against History or Ops.
+- Ambiguous fall-back and nonexistent spring-forward local export timestamps
+  fail with a clear timezone explanation rather than guessing an offset.
+  Calendar rules determine summer `-04:00` versus winter `-05:00`.
 
 ## Key Components
 

@@ -30,6 +30,9 @@ complete export through Globus. Retrying/retriggering requests is outside scope.
   records stop preview parsing without expanding the read budget.
 - JSON exports use an escaped, bounded text preview; partial JSON is not parsed
   as a complete document. No plotting or whole-file browser loading is included.
+- New exports serialize event timestamps in America/New_York with explicit UTC
+  offsets. Preview only displays file contents, without converting times. Existing
+  exports remain unchanged; the preview explains that older files may lack offsets.
 - Preview shows filename, byte size, query type/parameters, and an explicit
   partial-preview explanation. All result text is escaped by templates.
 - Full downloads preserve their generated filename and stream from an open,

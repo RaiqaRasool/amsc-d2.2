@@ -15,11 +15,13 @@ from globus_service import (
 )
 from jobs import get_job, update_job
 from mya_query import run_mya_query
+from export_timestamps import prepare_export_timestamps
 from worker_limits import LimitedTextWriter, run_with_timeout
 
 
 def run_and_export_mya_query(job, temporary_path):
     data = run_mya_query(job["query_type"], job["query_params"])
+    data = prepare_export_timestamps(data, job["query_type"])
     extension = "json" if job["query_type"] in ("point", "channel") else "csv"
     with open(temporary_path, "w", encoding="utf-8", newline="") as output_file:
         limited_output = LimitedTextWriter(output_file, MAX_MYA_OUTPUT_BYTES)
