@@ -42,6 +42,10 @@ assert 'Content-Disposition' not in page.headers
 assert page.headers['Cache-Control'] == 'private, no-store'
 assert b'pv2' in page.data
 assert b'Download CSV' in page.data
+assert b'data-copy-pv="pv2"' in page.data
+assert b'data-select-pv="pv2"' in page.data
+assert b'Copy 0 selected PVs' in page.data
+assert b'id="copy-selected-pvs" disabled' in client.get('/demo-catalog?q=missing').data
 assert b'No matching PVs' in client.get('/demo-catalog?q=missing').data
 assert b'pv2' in client.get('/demo-catalog?q=PV2').data
 path.write_text('pv_name,stored_events\\n<script>alert(1)</script>,1\\n')

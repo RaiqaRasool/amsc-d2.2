@@ -21,20 +21,51 @@
           <button type="submit">Search</button>
         </form>
         <p>{{ rows|length }} of {{ total }} PVs · <a href="{{ url_for('demo_catalog_csv') }}">Download CSV</a></p>
+        <p class="helper">Check PVs below, then copy the selected names as a comma-separated list. A new search clears your selection.</p>
+        <div class="actions">
+          <button type="button" id="copy-selected-pvs" disabled>Copy 0 selected PVs</button>
+          <span id="copy-status" role="status" aria-live="polite"></span>
+        </div>
         <div class="table-wrap">
           <table>
             <caption>PV names and stored event ranges in the demo database</caption>
-            <thead><tr>{% for key, label in columns %}<th scope="col">{{ label }}</th>{% endfor %}</tr></thead>
+            <thead><tr><th scope="col">Select</th>{% for key, label in columns %}<th scope="col">{{ label }}</th>{% endfor %}</tr></thead>
             <tbody>
               {% for row in rows %}
-                <tr>{% for key, label in columns %}<td>{{ row.get(key, '') }}</td>{% endfor %}</tr>
+                <tr><td><input type="checkbox" data-select-pv="{{ row.get('pv_name', '') }}" aria-label="Select {{ row.get('pv_name', '') }}" style="min-width: auto; min-height: auto; width: auto;"></td>{% for key, label in columns %}<td>{{ row.get(key, '') }}{% if key == 'pv_name' %} <button type="button" class="button-secondary icon-button" title="Copy PV name" data-copy-pv="{{ row.get(key, '') }}" aria-label="Copy {{ row.get(key, '') }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button>{% endif %}</td>{% endfor %}</tr>
               {% else %}
-                <tr><td colspan="{{ columns|length or 1 }}">No matching PVs.</td></tr>
+                <tr><td colspan="{{ columns|length + 1 }}">No matching PVs.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       </section>
     </main>
+    <script>
+      const copyStatus = document.getElementById("copy-status");
+      async function copyPvs(names) {
+        try {
+          await navigator.clipboard.writeText(names.join(","));
+          copyStatus.textContent = names.length === 1 ? "Copied PV name." : "Copied " + names.length + " PV names.";
+        } catch {
+          copyStatus.textContent = "Could not copy. Select and copy the PV names manually.";
+        }
+      }
+      const pvButtons = [...document.querySelectorAll("[data-copy-pv]")];
+      pvButtons.forEach(button => button.addEventListener("click", () => copyPvs([button.dataset.copyPv])));
+      const selections = [...document.querySelectorAll("[data-select-pv]")];
+      const copySelected = document.getElementById("copy-selected-pvs");
+      const selectedNames = () => selections.filter(box => box.checked).map(box => box.dataset.selectPv);
+      selections.forEach(box => box.addEventListener("change", () => {
+        const count = selectedNames().length;
+        copySelected.disabled = count === 0;
+        copySelected.textContent = "Copy " + count + " selected PVs";
+        copyStatus.textContent = "";
+      }));
+      copySelected.addEventListener("click", () => {
+        const names = selectedNames();
+        if (names.length) copyPvs(names);
+      });
+    </script>
   </body>
 </html>

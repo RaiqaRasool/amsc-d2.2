@@ -46,6 +46,13 @@ available, without updating frontend examples on every import.
   container, so atomic replacement becomes visible without rebuilding.
 - Generated catalogs are excluded from Git and the Docker build context.
 
+- Each PV has a copy icon for its exact name and a checkbox for bulk selection.
+  Copy selected PVs copies only checked rows as comma-separated names, shows
+  the selected count, and stays disabled until a row is checked. Selection
+  works with or without filtering; a new search clears it. There is no select-all
+  control. Clipboard failures show a manual-copy message; success is announced
+  through an accessible status message.
+
 ## Failure Behavior
 
 - Missing catalog returns a descriptive 404; other deployments return 404.
