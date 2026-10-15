@@ -4,7 +4,8 @@
 
 Convert approved MySampler CSV exports into a synthetic MYA demo archive,
 with reviewable SQL per PV and an explicit command for importing later files.
-This is the agreed implementation contract; the converter is not implemented yet.
+Timestamp and channel-mapping helpers are implemented. CSV conversion and
+database import are not implemented yet.
 
 ## Input
 
@@ -69,3 +70,22 @@ This is the agreed implementation contract; the converter is not implemented yet
 - Test stable IDs, safe SQL output, identical reruns, and conflicting imports.
 - Confirm Channel, Point, Interval, MySampler, and supported MyStats queries
   against a small imported dataset.
+
+## Implemented Format Helpers
+
+- `demo_csv_import.py` encodes Unix seconds in the upper bits and binary
+  fractional seconds in the low 28 bits, using integer arithmetic and truncation.
+  Timestamp text supports up to nine fractional digits and explicit UTC offsets.
+- Naive dates use America/New_York; unresolved DST gaps and repeated hours fail.
+  Negative times and values exceeding signed BIGINT storage are rejected.
+- Timestamp format reference: [jmyapi TimeUtil.java](https://github.com/JeffersonLab/jmyapi/blob/7f2301e2e9acfee4853cfd27f689e7d1662d22ca/src/main/java/org/jlab/mya/TimeUtil.java).
+  Its conversion methods use 28 fractional bits despite older introductory
+  comments referring to 32 bits. Exported timestamps cannot always recover the
+  original binary fraction exactly; the known fixture differs by one tick.
+- Channel mapping helpers allocate IDs starting at 1000 in sorted PV-name order
+  for newly encountered names, retaining all previously assigned IDs. This
+  reserves the existing low-ID fixtures but does not prove database availability.
+- JSON mappings can be loaded and saved explicitly. Saving refuses to overwrite
+  an existing file; later conversion must publish the extended mapping alongside
+  generated output. Import-time database collision checks remain a later step.
+- Focused check: `.venv/bin/python -m unittest discover -s tests -p test_demo_csv_import.py`.
