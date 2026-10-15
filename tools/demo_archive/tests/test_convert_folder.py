@@ -25,13 +25,13 @@ class DemoFolderTests(unittest.TestCase):
         mapping = load_channel_mapping(self.output / 'channels.json')
         channels = validate_bundle(self.output)
         self.assertEqual(2, len(channels))
-        events = list(validated_events(self.output / f"{mapping['pvA']}_channel.sql", 'pvA', mapping['pvA']))
+        events = list(validated_events(self.output / f"{mapping['pvA']}_pvA.sql", 'pvA', mapping['pvA']))
         self.assertEqual([5, 5, 6], [value for _, value in events])
         self.assertEqual(sorted(time for time, _ in events), [time for time, _ in events])
         summary = json.loads((self.output / 'summary.json').read_text())
         self.assertEqual(['z.csv', 'a.csv'], [run['source'] for run in summary['sources']])
         self.assertEqual(4, summary['rows'])
-        self.assertEqual(1, (self.output / f"{mapping['pvA']}_channel.sql").read_text().count('CREATE TABLE'))
+        self.assertEqual(1, (self.output / f"{mapping['pvA']}_pvA.sql").read_text().count('CREATE TABLE'))
 
     def test_overlap_and_bad_later_file_publish_nothing(self):
         (self.csv_dir / 'a.csv').write_text('Date,pv\n2024-05-09 10:00:00,1\n2024-05-09 10:00:02,2\n')
@@ -52,7 +52,7 @@ class DemoFolderTests(unittest.TestCase):
         (self.csv_dir / 'data.CSV').write_text('Date,pv\n2024-05-09 10:00:00,1\n')
         convert_folder(self.csv_dir, self.output, mapping)
         self.assertEqual({'pv': 1234, 'older': 1233}, load_channel_mapping(self.output / 'channels.json'))
-        self.assertTrue((self.output / '1234_channel.sql').exists())
+        self.assertTrue((self.output / '1234_pv.sql').exists())
 
     def test_empty_folder_and_existing_output(self):
         with self.assertRaisesRegex(ValueError, 'no CSV'):

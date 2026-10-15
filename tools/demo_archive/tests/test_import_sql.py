@@ -38,7 +38,7 @@ class DemoSqlImportTests(unittest.TestCase):
 
     @patch('tools.demo_archive.import_sql.subprocess.run')
     def test_rejects_tampered_sql_before_database_access(self, run):
-        with (self.bundle / '1000_channel.sql').open('a') as output:
+        with (self.bundle / '1000_pv.sql').open('a') as output:
             output.write('DROP TABLE channels;\n')
         with self.assertRaisesRegex(ValueError, 'invalid event statement'):
             import_bundle(self.bundle, ['mysql'])
@@ -72,6 +72,10 @@ class DemoSqlImportTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'unsupported'):
             import_bundle(self.bundle, ['mysql'])
         self.assertEqual(1, run.call_count)
+
+    def test_legacy_filenames_still_import(self):
+        (self.bundle / '1000_pv.sql').rename(self.bundle / '1000_channel.sql')
+        self.assertEqual('1000_channel.sql', validate_bundle(self.bundle)[0][2].name)
 
     def test_compose_command_uses_container_credentials(self):
         command = mysql_command('podman', 'docker-compose.production.yml')

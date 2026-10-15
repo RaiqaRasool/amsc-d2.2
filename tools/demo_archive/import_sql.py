@@ -9,9 +9,9 @@ import tempfile
 from pathlib import Path
 
 if __package__:
-    from .demo_csv_import import _numeric_value, _write_channel_schema, load_channel_mapping
+    from .demo_csv_import import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
 else:
-    from demo_csv_import import _numeric_value, _write_channel_schema, load_channel_mapping
+    from demo_csv_import import _numeric_value, _write_channel_schema, channel_sql_filename, load_channel_mapping
 
 _EVENT = re.compile(
     r"INSERT INTO `table_(\d+)` \(`time`, `code`, `val1`\) VALUES \((\d+), 0, ([^;]+)\);\n?"
@@ -63,7 +63,9 @@ def validate_bundle(bundle):
         if len(encoded_name) > 255:
             raise ValueError(f"PV name {name!r} exceeds the demo database's 255-character limit")
         channel_id = mapping[name]
-        path = bundle / f"{channel_id}_channel.sql"
+        path = bundle / channel_sql_filename(name, channel_id)
+        if not path.exists():
+            path = bundle / f"{channel_id}_channel.sql"  # Older generated bundles.
         if sum(1 for _ in validated_events(path, name, channel_id)) != count:
             raise ValueError(f"{path.name}: event count differs from summary")
         channels.append((name, channel_id, path))

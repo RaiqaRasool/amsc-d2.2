@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from tools.demo_archive.demo_csv_import import (
-    convert_csv, extend_channel_mapping, load_channel_mapping, save_channel_mapping, to_mya_timestamp,
+    channel_sql_filename, convert_csv, extend_channel_mapping, load_channel_mapping, save_channel_mapping, to_mya_timestamp,
 )
 
 
@@ -86,7 +86,7 @@ class DemoCsvConversionTests(unittest.TestCase):
             ["2024-05-09 08:53:03", "0", "6"],
         ])
         self.assertEqual({"pvA": 3, "pvB": 2}, convert_csv(self.source, self.output))
-        sql = (self.output / "1000_channel.sql").read_text()
+        sql = (self.output / "1000_pvA.sql").read_text()
         self.assertIn("CREATE TABLE `table_1000`", sql)
         self.assertIn("`val1` FLOAT", sql)
         self.assertIn(f"VALUES ({to_mya_timestamp('2024-05-09 08:53:02')}, 0, 1)", sql)
@@ -104,7 +104,7 @@ class DemoCsvConversionTests(unittest.TestCase):
         self.write_csv([["2024-05-19 08:53:00", "2", "1"]], ("Date", "pvB", "pvA"))
         self.assertEqual({"pvB": 1, "pvA": 1}, convert_csv(self.source, later, mapping))
         self.assertEqual(load_channel_mapping(mapping), load_channel_mapping(later / "channels.json"))
-        sql = (later / "1000_channel.sql").read_text()
+        sql = (later / "1000_pvA.sql").read_text()
         self.assertEqual(1, sql.count("INSERT INTO `table_1000`"))
         self.assertIn(f"VALUES ({to_mya_timestamp('2024-05-19 08:53:00')}, 0, 1)", sql)
         self.assertNotIn("unavailable", sql)
@@ -147,11 +147,17 @@ class DemoCsvConversionTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             convert_csv(self.source, self.output)
 
-    def test_pv_name_never_becomes_sql_or_filename(self):
+    def test_pv_name_is_safely_encoded_in_filename_and_sql(self):
         name = "../pv'; DROP TABLE channels; --"
         self.write_csv([["2024-05-09 08:53:00", "1"]], ("Date", name))
         convert_csv(self.source, self.output)
-        sql = (self.output / "1000_channel.sql").read_text()
+        sql = (self.output / channel_sql_filename(name, 1000)).read_text()
+        filename = channel_sql_filename(name, 1000)
+        self.assertNotIn("/", filename)
+        self.assertNotIn("\\", filename)
+        self.assertIn("%2F", filename)
+        self.assertLessEqual(len(channel_sql_filename("é" * 255, 1000)), 255)
+        self.assertEqual("1002_INX2L07_gDsRt.sql", channel_sql_filename("INX2L07_gDsRt", 1002))
         self.assertIn(name.encode().hex(), sql)
         self.assertNotIn("DROP TABLE", sql)
         self.assertEqual({name: 1000}, load_channel_mapping(self.output / "channels.json"))

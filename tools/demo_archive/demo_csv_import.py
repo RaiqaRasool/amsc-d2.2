@@ -14,6 +14,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from urllib.parse import quote
 
 # Verified against JeffersonLab/jmyapi TimeUtil.java at 7f2301e2.
 TICKS_PER_SECOND = 1 << 28
@@ -109,6 +110,15 @@ def _numeric_value(text):
     return value
 
 
+
+def channel_sql_filename(name, channel_id):
+    """Readable, portable filename; identity remains the database ID and exact PV name."""
+    # IDs make filenames unique even on case-insensitive filesystems. Encoding
+    # separators prevents traversal; the length cap fits typical filesystem limits.
+    label = quote(name, safe="-_.")[:180]
+    return f"{channel_id}_{label}.sql"
+
+
 def _write_channel_schema(output, name, channel_id):
     # A UTF-8 hex literal avoids SQL mode-dependent quoting of approved PV names.
     name_sql = "CONVERT(0x" + name.encode("utf-8").hex() + " USING utf8mb4)"
@@ -160,7 +170,7 @@ def convert_csv(csv_path, output_dir, mapping_path=None, timezone_name="America/
                 outputs = {}
                 for name in names:
                     outputs[name] = files.enter_context(
-                        (bundle / f"{mapping[name]}_channel.sql").open("w", encoding="utf-8")
+                        (bundle / channel_sql_filename(name, mapping[name])).open("w", encoding="utf-8")
                     )
                     _write_channel_schema(outputs[name], name, mapping[name])
                 previous_time, previous_values = None, None
@@ -254,7 +264,7 @@ def convert_folder(csv_dir, output_dir, mapping_path=None, timezone_name="Americ
         # Only one final output is open at a time, and copying is chunked.
         for name in sorted(counts):
             channel_id = mapping[name]
-            filename = f"{channel_id}_channel.sql"
+            filename = channel_sql_filename(name, channel_id)
             schema = io.StringIO()
             _write_channel_schema(schema, name, channel_id)
             header = schema.getvalue()

@@ -141,3 +141,13 @@ output format, and current limitations. Tool tests are colocated in `tools/demo_
   sampled rows, 226 PVs, and 303,146 retained events. The generated combined
   bundle passed importer validation (about 28 MB of SQL). No database import
   was performed in this step.
+
+## SQL Filenames
+
+- Generated SQL filenames include both stable ID and readable PV name, such as
+  `1002_INX2L07_gDsRt.sql`. Unsafe characters are percent-encoded and filename
+  labels capped at 180 characters. IDs prevent filename collisions.
+- Database table names remain `table_<chan_id>`; exact PV names remain unchanged
+  in metadata, mappings, and website searches. The importer accepts older numeric
+  filenames too. Existing generated files were renamed and the 226-PV bundle
+  passed validation; event contents and channel assignments were unchanged.

@@ -15,7 +15,7 @@ python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-0
 ```
 
 The single-file example is optional. To convert all CSVs in a folder together,
-use the folder command below. Each output bundle has `<channel_id>_channel.sql` files,
+use the folder command below. Each output bundle has `<channel_id>_<PV_name>.sql` files,
 `channels.json`, and `summary.json` with source name and per-PV event counts.
 Source CSVs are read row by row, with memory proportional to the column count;
 the converter keeps one output file open per PV. It does not query a database.
@@ -31,8 +31,13 @@ python3 tools/demo_archive/demo_csv_import.py ../cebaf_linac_fe_2024/data-2024-0
   Cross-file/database conflict checking is performed by the import command.
 - Output is staged in a temporary sibling directory and published only after
   validation completes. Existing output directories are refused.
-- Names use UTF-8 hex expressions in SQL and numeric filenames. Duplicate,
+- Names use UTF-8 hex expressions in SQL and readable ID/PV filenames. Duplicate,
   empty, control-character, and reserved fixture PV headers are rejected.
+- SQL filenames include the ID and PV name, for example `1002_INX2L07_gDsRt.sql`.
+  Unsafe characters are percent-encoded; labels are capped at 180 characters
+  to fit filesystem limits. IDs preserve uniqueness. Exact PV names stay in
+  the mapping/database and are what users search for. The importer also accepts
+  earlier `<channel_id>_channel.sql` filenames.
 - Numeric comparisons use Decimal so equivalent representations deduplicate.
   Storage follows the fixtures: type 6, size 1, and SQL FLOAT. FLOAT rounds
   values to single precision; nonfinite, overflow, and underflow-to-zero input
