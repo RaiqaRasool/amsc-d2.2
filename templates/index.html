@@ -100,13 +100,9 @@
                       End
                       <input type="datetime-local" name="interval_end" required disabled>
                     </label>
-                    <label>
-                      Channel (when querying one PV)
-                      <input name="interval_channel" maxlength="256" disabled>
-                    </label>
                     <label class="field-wide">
                       <span class="field-label">
-                        PVs (comma-separated, instead of channel)
+                        PVs (comma-separated)
                         <span class="pv-help" tabindex="0" aria-label="Help choosing PVs">
                           ?
                           <span class="pv-help-tooltip" role="tooltip">
@@ -120,12 +116,13 @@
                           </span>
                         </span>
                       </span>
-                      <input name="interval_pvlist" maxlength="25699" disabled>
+                      <input name="interval_pvlist" maxlength="25699" required disabled>
                       <small>{% if demo_catalog_enabled %}Use the ? help icon beside PVs to open the demo catalog for PV names and stored event dates.{% else %}Use archived EPICS PV names.{% endif %}</small>
                     </label>
                     <label class="checkbox-label field-wide">
                       <input type="checkbox" name="interval_prior_point" value="true" checked disabled>
-                      Include the point immediately before the interval
+                      Include the point immediately before the interval (single PV)
+                      <small>For multiple PVs, the prior point is always included.</small>
                     </label>
                   </section>
 

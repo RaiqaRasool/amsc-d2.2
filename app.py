@@ -386,16 +386,17 @@ def query_mya():
             begin = parse_form_datetime("interval_begin")
             end = parse_form_datetime("interval_end")
             pvlist = parse_pvlist(request.form.get("interval_pvlist", ""))
-            channel = request.form.get("interval_channel", "").strip()
-            if end <= begin or (not pvlist and not channel):
+            if end <= begin or not pvlist:
                 raise ValueError
             query_params = {
                 "begin": begin.isoformat(),
                 "end": end.isoformat(),
-                "prior_point": request.form.get("interval_prior_point") == "true",
-                "pvlist": pvlist,
-                "channel": channel,
+                "prior_point": len(pvlist) > 1 or request.form.get("interval_prior_point") == "true",
             }
+            if len(pvlist) == 1:
+                query_params["channel"] = pvlist[0]
+            else:
+                query_params["pvlist"] = pvlist
         elif query_type == "mystats":
             start = parse_form_datetime("mystats_start")
             end = parse_form_datetime("mystats_end")
