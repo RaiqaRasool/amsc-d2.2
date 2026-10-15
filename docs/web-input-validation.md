@@ -19,6 +19,10 @@ application state, without rewriting valid user paths or labels.
 - Valid Unicode, spaces, punctuation, and path separators are preserved.
 - Browser length constraints provide early feedback; backend validation remains
   authoritative and runs before Globus API calls.
+- Enter-to-select destination browsing validates folder accessibility through
+  Globus before saving a collection/path selection and proof ID. Transfer
+  submission checks that proof and exact pair without re-listing the folder.
+  See `destination-path-entry.md`.
 - Stored destinations are revalidated when a transfer job is queued, including
   values retained by sessions created before these checks were introduced.
 

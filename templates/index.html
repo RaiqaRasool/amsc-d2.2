@@ -200,41 +200,58 @@
                   <h3>Globus Transfer Params</h3>
                 </div>
                 <div class="destination-actions">
-                  <div class="block">
-                    <form action="{{ url_for('search_collections') }}" method="get" class="inline-form">
+                  <input type="hidden" form="query-form" name="destination_selection_id" data-destination-selection value="{{ destination_selection_id or '' }}">
+                  <input type="hidden" form="query-form" name="validated_collection_id" data-destination-selection value="{{ destination_collection_id or '' }}">
+                  <input type="hidden" form="query-form" name="validated_destination_path" data-destination-selection value="{{ destination_path or '' }}">
+                  <div class="destination-manager">
+                    <div class="destination-manager-header">
+                      <strong>Destination</strong>
+                      <button type="button" class="button-secondary icon-button" id="reset-destination"
+                        data-reset-url="{{ url_for('reset_destination') }}" title="Reset destination" aria-label="Reset destination">↺</button>
+                    </div>
+                    <form action="{{ url_for('search_collections') }}" method="get" class="inline-form destination-row" id="collection-search-form">
                       <label>
-                        Search Globus destination
-                        <input name="q" maxlength="128" required>
+                        Collection
+                        <input id="collection-search" name="q" maxlength="128" placeholder="Search collections" required>
                       </label>
-                      <button type="submit">Search destination</button>
+                      <button type="submit" id="collection-search-button">Search</button>
                     </form>
-                    <form action="{{ url_for('reset_destination') }}" method="post">
+                    <label class="destination-row destination-collection-row">
+                      <span id="collection-results-label">{% if destination_collection_id %}Current collection{% else %}Results{% endif %}</span>
+                      <select id="destination-collection" name="collection_id" form="destination-path-form" required>
+                        <option value="">Select a collection from search results</option>
+                        {% if destination_collection_id %}
+                          <option value="{{ destination_collection_id }}" selected>{{ destination_collection_name or destination_collection_id }}</option>
+                        {% endif %}
+                      </select>
+                    </label>
+                    <div id="collection-search-status" aria-live="polite"></div>
+                    <form action="{{ url_for('select_destination') }}" method="post" id="destination-path-form">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                      <button
-                        type="submit"
-                        class="button-secondary"
-                        {% if not destination_collection_id %}disabled{% endif %}
-                      >
-                        Reset destination
-                      </button>
+                      <label class="destination-row">
+                        <span>Path</span>
+                        <input aria-label="Destination folder path" id="destination-path" name="path" value="{{ destination_path or '/' }}" maxlength="1024" required {% if not destination_collection_id %}disabled{% endif %}>
+                      </label>
+                      <small>Enter a path and press Enter to select it.</small>
+                      <div class="actions destination-toolbar">
+                        <button type="button" class="button-secondary icon-button" id="destination-parent" title="Up one folder" aria-label="Up one folder" disabled>↑</button>
+                        <button type="button" class="button-secondary icon-button" id="browse-destination" title="Refresh folder" aria-label="Refresh folder"
+                          {% if not destination_collection_id %}disabled{% endif %}>↻</button>
+                      </div>
+                      <div id="destination-folder-list" class="destination-folder-box" aria-live="polite">Enter a path and press Enter to load folders.</div>
                     </form>
+                    <p class="helper" id="destination-selection-status">
+                      {% if destination_selection_id %}Validated destination: {{ destination_collection_name }}, {{ destination_path }}.
+                      {% else %}No validated destination selected yet.{% endif %}
+                    </p>
                   </div>
-                  <p class="helper">
-                    {% if destination_collection_id %}
-                      Current selected:
-                      <strong>Collection:</strong> {{ destination_collection_name or "Unknown collection" }},
-                      <strong>path:</strong> {{ destination_path or "Choose a path" }}.
-                    {% else %}
-                      <span class="helper-error">No destination selected yet.</span>
-                    {% endif %}
-                  </p>
                   <label>
                     Label for Globus Transfer
                     <input form="query-form" name="transfer_label" maxlength="108" value="test transfer">
                   </label>
                   <div class="actions">
                     <span
-                      {% if not (destination_collection_id and destination_path) %}
+                      {% if not destination_selection_id %}
                         title="Choose a destination before submitting the transfer."
                       {% endif %}
                     >
@@ -243,7 +260,7 @@
                         type="submit"
                         name="submit_action"
                         value="query_and_transfer"
-                        {% if not (destination_collection_id and destination_path) %}disabled{% endif %}
+                        {% if not destination_selection_id %}disabled{% endif %}
                       >
                         Query &amp; Transfer
                       </button>
@@ -283,7 +300,7 @@
         const queryPanels = queryForm.querySelectorAll("[data-query-panel]");
         const queryFields = document.querySelectorAll(
           "#query-form input:not([name='csrf_token']), " +
-          "input[form='query-form']:not([name='csrf_token'])"
+          "input[form='query-form']:not([name='csrf_token']):not([data-destination-selection])"
         );
 
         function activateQueryTab(queryType) {
@@ -398,6 +415,237 @@
             event.preventDefault();
           }
         });
+      }
+
+      const destinationPath = document.getElementById("destination-path");
+      const collectionSelect = document.getElementById("destination-collection");
+      const browseDestination = document.getElementById("browse-destination");
+      const folderList = document.getElementById("destination-folder-list");
+      const parentDestination = document.getElementById("destination-parent");
+      const transferSubmit = document.querySelector("button[value='query_and_transfer']");
+      const searchForm = document.getElementById("collection-search-form");
+      if (destinationPath && collectionSelect && browseDestination) {
+        let savedCollection = {{ destination_collection_id|tojson }};
+        let savedPath = {{ destination_path|tojson }};
+        let selectionId = {{ destination_selection_id|tojson }};
+        const pathForm = document.getElementById("destination-path-form");
+        const selectionStatus = document.getElementById("destination-selection-status");
+        function clearValidation() {
+          selectionId = "";
+          document.querySelector("[name='destination_selection_id']").value = "";
+          if (transferSubmit) transferSubmit.disabled = true;
+          selectionStatus.textContent = "Press Enter to validate this destination.";
+        }
+        let browseController;
+        let resumingDestination = false;
+        const destinationResumeKey = "amsc-destination-resume";
+        let parentPath = "/";
+        function updateDestinationDraft() {
+          const chosen = Boolean(collectionSelect.value);
+          destinationPath.disabled = !chosen;
+          if (transferSubmit) {
+            transferSubmit.disabled = !selectionId || !savedPath || collectionSelect.value !== savedCollection ||
+              destinationPath.value !== savedPath;
+          }
+        }
+        function showError(target, result) {
+          target.textContent = result.error || "Request failed. Try again.";
+          if (result.login_url) {
+            if (resumingDestination) {
+              target.textContent = "Folder access is still unavailable after sign-in. Try browsing again or choose another collection.";
+              return;
+            }
+            sessionStorage.setItem(destinationResumeKey, JSON.stringify({
+              owner: {{ session.get('globus_identity')|tojson }},
+              collection: collectionSelect.value,
+              collectionName: collectionSelect.selectedOptions[0]?.textContent || "",
+              path: destinationPath.value,
+              query: document.getElementById("collection-search").value,
+            }));
+            window.location.assign(result.login_url);
+          }
+        }
+        destinationPath.addEventListener("input", () => {
+          browseController?.abort();
+          clearValidation();
+          updateDestinationDraft();
+          browseDestination.disabled = !collectionSelect.value;
+          parentDestination.disabled = true;
+          folderList.textContent = "Press Enter to load this folder.";
+        });
+        pathForm.addEventListener("submit", (event) => { event.preventDefault(); browseFolders(); });
+        destinationPath.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") { event.preventDefault(); browseFolders(); }
+        });
+        async function browseFolders() {
+          if (!collectionSelect.value || !destinationPath.reportValidity()) return;
+          clearValidation();
+          browseController?.abort();
+          const controller = new AbortController();
+          browseController = controller;
+          const requestedPath = destinationPath.value;
+          const requestedCollection = collectionSelect.value;
+          const body = new FormData(pathForm);
+          body.set("collection_id", requestedCollection);
+          body.set("path", requestedPath);
+          browseDestination.disabled = true;
+          parentDestination.disabled = true;
+          folderList.textContent = "Loading folders…";
+          try {
+            const response = await fetch(pathForm.action, {method: "POST", body, cache: "no-store", signal: controller.signal});
+            if (!response.headers.get("content-type")?.includes("application/json")) {
+              throw new Error("Could not browse. Try again or sign in again.");
+            }
+            const result = await response.json();
+            if (destinationPath.value !== requestedPath || collectionSelect.value !== requestedCollection) return;
+            folderList.replaceChildren();
+            if (!response.ok) {
+              showError(folderList, result);
+              return;
+            }
+            destinationPath.value = result.path;
+            savedCollection = result.collection_id;
+            savedPath = result.path;
+            selectionId = result.selection_id;
+            document.querySelector("[name='destination_selection_id']").value = selectionId;
+            document.querySelector("[name='validated_collection_id']").value = savedCollection;
+            document.querySelector("[name='validated_destination_path']").value = savedPath;
+            selectionStatus.textContent = "Validated destination: " + result.collection_name + ", " + result.path;
+            parentPath = result.parent_path;
+            parentDestination.disabled = result.path === "/";
+            updateDestinationDraft();
+            if (result.limited) {
+              const description = document.createElement("p");
+              description.textContent = "Showing the first 200 entries.";
+              folderList.append(description);
+            }
+            if (!result.folders.length) folderList.append(document.createTextNode("No subfolders found."));
+            const list = document.createElement("ul");
+            list.className = "destination-folders";
+            result.folders.forEach((folder) => {
+              const item = document.createElement("li");
+              const button = document.createElement("button");
+              button.type = "button";
+              button.className = "button-secondary";
+              button.textContent = folder.name + "/";
+              button.addEventListener("click", () => {
+                destinationPath.value = folder.path;
+                updateDestinationDraft();
+                browseFolders();
+              });
+              item.append(button);
+              list.append(item);
+            });
+            folderList.append(list);
+          } catch (error) {
+            if (error.name !== "AbortError" && destinationPath.value === requestedPath &&
+                collectionSelect.value === requestedCollection) folderList.textContent = error.message;
+          } finally {
+            if (browseController === controller) {
+              browseDestination.disabled = !collectionSelect.value;
+              resumingDestination = false;
+            }
+          }
+        }
+        browseDestination.addEventListener("click", browseFolders);
+        parentDestination.addEventListener("click", () => {
+          destinationPath.value = parentPath;
+          updateDestinationDraft();
+          browseFolders();
+        });
+        collectionSelect.addEventListener("change", () => {
+          browseController?.abort();
+          document.getElementById("collection-search-status").textContent = "";
+          clearValidation();
+          destinationPath.value = collectionSelect.value === savedCollection ? (savedPath || "/") : "/";
+          updateDestinationDraft();
+          browseDestination.disabled = !collectionSelect.value;
+          parentDestination.disabled = true;
+          folderList.textContent = "Enter a path and press Enter to load folders.";
+        });
+        document.getElementById("reset-destination").addEventListener("click", async (event) => {
+          const button = event.currentTarget;
+          button.disabled = true;
+          browseController?.abort();
+          clearValidation();
+          try {
+            const body = new FormData();
+            body.set("csrf_token", pathForm.elements.csrf_token.value);
+            const response = await fetch(button.dataset.resetUrl, {method: "POST", body});
+            if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) throw new Error("Could not reset destination. Try again.");
+            const result = await response.json();
+            if (!result.reset) throw new Error("Could not reset destination. Try again.");
+            savedCollection = savedPath = selectionId = "";
+            document.getElementById("collection-results-label").textContent = "Results";
+            collectionSelect.replaceChildren(new Option("Select a collection from search results", ""));
+            destinationPath.value = "/";
+            document.getElementById("collection-search").value = "";
+            document.getElementById("collection-search-status").textContent = "";
+            document.querySelectorAll("[data-destination-selection]").forEach(field => field.value = "");
+            sessionStorage.removeItem(destinationResumeKey);
+            folderList.textContent = "Enter a path and press Enter to load folders.";
+            selectionStatus.textContent = "No validated destination selected yet.";
+            parentDestination.disabled = browseDestination.disabled = true;
+            updateDestinationDraft();
+          } catch (error) { folderList.textContent = error.message; }
+          finally { button.disabled = false; }
+        });
+        searchForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const input = document.getElementById("collection-search");
+          const status = document.getElementById("collection-search-status");
+          const button = document.getElementById("collection-search-button");
+          const requestedQuery = input.value;
+          const url = new URL(searchForm.action);
+          url.searchParams.set("q", requestedQuery);
+          button.disabled = true;
+          status.textContent = "Searching collections…";
+          try {
+            const response = await fetch(url, {cache: "no-store"});
+            if (!response.headers.get("content-type")?.includes("application/json")) {
+              throw new Error("Could not search. Try again or sign in again.");
+            }
+            const result = await response.json();
+            if (input.value !== requestedQuery) return;
+            if (!response.ok) { showError(status, result); return; }
+            collectionSelect.replaceChildren(new Option("Select a collection", ""));
+            result.collections.forEach((collection) => {
+              collectionSelect.append(new Option(collection.name, collection.id));
+            });
+            document.getElementById("collection-results-label").textContent = "Results";
+            collectionSelect.value = "";
+            collectionSelect.dispatchEvent(new Event("change"));
+            status.textContent = result.collections.length ? "Choose a collection from the results above." : "No collections found.";
+          } catch (error) {
+            status.textContent = error.message;
+          } finally {
+            button.disabled = false;
+            resumingDestination = false;
+          }
+        });
+        try {
+          const resume = JSON.parse(sessionStorage.getItem(destinationResumeKey));
+          sessionStorage.removeItem(destinationResumeKey);
+          if (resume && resume.owner === {{ session.get('globus_identity')|tojson }}) {
+            document.getElementById("collection-search").value = resume.query || "";
+            if (resume.collection) {
+              if (![...collectionSelect.options].some((option) => option.value === resume.collection)) {
+                collectionSelect.append(new Option(resume.collectionName || resume.collection, resume.collection));
+              }
+              collectionSelect.value = resume.collection;
+              destinationPath.value = resume.path || "/";
+              updateDestinationDraft();
+              browseDestination.disabled = false;
+              resumingDestination = true;
+              browseFolders();
+            } else if (resume.query) {
+              resumingDestination = true;
+              searchForm.requestSubmit();
+            }
+          }
+        } catch {
+          sessionStorage.removeItem(destinationResumeKey);
+        }
       }
 
       const jobsPanel = document.getElementById("jobs-panel");

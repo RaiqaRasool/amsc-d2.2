@@ -595,3 +595,106 @@ th {
   max-height: 32rem;
   overflow: auto;
 }
+
+/* A compact file manager: address rows above a shared toolbar and folder pane. */
+.destination-manager {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: white;
+}
+.destination-manager-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: #f5f7f9;
+  border-bottom: 1px solid var(--border);
+}
+.destination-manager .destination-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 7px 10px;
+  flex-wrap: nowrap;
+}
+.destination-manager .destination-row label {
+  display: contents;
+}
+.destination-manager .destination-row > span {
+  width: 65px;
+  flex: 0 0 65px;
+}
+.destination-manager input,
+.destination-manager select {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: white;
+}
+.destination-manager small {
+  display: block;
+  margin: 0 10px 8px 85px;
+  color: var(--muted);
+}
+#collection-search-status:not(:empty) {
+  margin: 5px 10px 5px 85px;
+  font-size: 13px;
+}
+.destination-toolbar {
+  gap: 4px;
+  margin: 0;
+  padding: 4px 10px;
+  background: #f5f7f9;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 1.3rem;
+}
+.destination-manager .icon-button {
+  border-color: transparent;
+  background: transparent;
+}
+.destination-folder-box {
+  min-height: 180px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.destination-folders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.destination-folders button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #edf0f3;
+  border-radius: 0;
+  background: white;
+  font-weight: 400;
+}
+.destination-folders button:hover {
+  background: #edf4fa;
+}
+#destination-selection-status {
+  margin: 0;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

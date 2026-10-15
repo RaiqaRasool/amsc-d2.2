@@ -4,6 +4,7 @@ import posixpath
 import secrets
 import uuid
 from datetime import datetime
+from itertools import islice
 
 from flask import (
     Flask,
@@ -205,6 +206,7 @@ def index():
         destination_collection_id=session.get("destination_collection_id"),
         destination_collection_name=session.get("destination_collection_name"),
         destination_path=session.get("destination_path"),
+        destination_selection_id=session.get("destination_selection_id"),
         jobs=[job_for_display(job) for job in list_jobs(globus_identity)],
     )
 
@@ -336,37 +338,42 @@ def callback():
         "preferred_username", identity_claims["sub"]
     )
 
+    session.pop("destination_selection_id", None)
     session.pop("consent_collection_ids", None)
-    return redirect(session.pop("post_auth_redirect", url_for("index")))
+    # Older sessions may still contain a return URL for the removed folder picker.
+    session.pop("post_auth_redirect", None)
+    return redirect(url_for("index"))
 
 
 @app.get("/collections/search")
 def search_collections():
     globus_identity = session.get("globus_identity")
     if not globus_identity or not session.get("token_reference"):
-        return redirect(url_for("login"))
+        return jsonify(error="Sign in again to search collections.", login_url=url_for("login")), 401
     limited = rate_limit_response(
-        f"identity:{globus_identity}",
-        "collection_search",
-        COLLECTION_SEARCH_RATE_LIMITS,
+        f"identity:{globus_identity}", "collection_search", COLLECTION_SEARCH_RATE_LIMITS,
     )
     if limited is not None:
-        return limited
-
+        return jsonify(error="Too many collection searches. Try again later."), limited[1], limited[2]
     query = request.args.get("q", "").strip()
     try:
         validate_collection_search(query)
     except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("index"))
-
+        return jsonify(error=str(error)), 400
     client = transfer_client()
     if client is None:
-        return redirect(url_for("login"))
-    results = list(
-        client.endpoint_search(filter_fulltext=query, filter_non_functional=False)
-    )[:10]
-    return render_template("collection_search.html", query=query, results=results)
+        return jsonify(error="Sign in again to search collections.", login_url=url_for("login")), 401
+    try:
+        results = list(islice(iter(client.endpoint_search(filter_fulltext=query, filter_non_functional=False)), 10))
+    except GlobusAPIError as error:
+        if getattr(error, "http_status", None) == 401:
+            return jsonify(error="Sign in again to search collections.", login_url=url_for("login")), 401
+        return jsonify(error="Collection search failed. Try again."), 400
+    response = jsonify(collections=[{"id": item.get("id", ""),
+                                    "name": item.get("display_name") or item.get("canonical_name") or "Unnamed collection"}
+                                   for item in results])
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @app.post("/mya/query")
@@ -456,6 +463,14 @@ def query_mya():
     ):
         flash("Choose a destination folder before running query and transfer.", "error")
         return redirect(url_for("index"))
+    if transfer_requested and (
+        not session.get("destination_selection_id")
+        or request.form.get("destination_selection_id") != session.get("destination_selection_id")
+        or request.form.get("validated_collection_id") != destination_collection_id
+        or request.form.get("validated_destination_path") != destination_folder
+    ):
+        flash("Press Enter in the destination path to validate the folder before transferring.", "error")
+        return redirect(url_for("index"))
     if transfer_requested and not session.get("token_reference"):
         flash(
             "Sign in again before queueing a background Globus transfer.",
@@ -519,17 +534,12 @@ def query_mya():
 def browse_collection(collection_id):
     globus_identity = session.get("globus_identity")
     if not globus_identity or not session.get("token_reference"):
-        return redirect(url_for("login"))
+        return jsonify(error="Sign in again to browse this collection.", login_url=url_for("login")), 401
     limited = rate_limit_response(
-        f"identity:{globus_identity}",
-        "collection_browse",
-        COLLECTION_BROWSE_RATE_LIMITS,
-    DEMO_CATALOG_PATH,
-    MYA_DEPLOYMENT,
+        f"identity:{globus_identity}", "collection_browse", COLLECTION_BROWSE_RATE_LIMITS,
     )
     if limited is not None:
-        return limited
-
+        return jsonify(error="Too many folder requests. Try again later."), limited[1], limited[2]
     path = request.args.get("path", "/") or "/"
     if not path.startswith("/"):
         path = "/" + path
@@ -537,46 +547,40 @@ def browse_collection(collection_id):
         collection_id = validate_collection_id(collection_id)
         validate_destination_path(path)
     except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("index"))
-
+        return jsonify(error=str(error)), 400
     client = transfer_client()
     if client is None:
-        return redirect(url_for("login"))
-    browse_error = None
+        return jsonify(error="Sign in again to browse this collection.", login_url=url_for("login")), 401
     try:
-        entries = list(client.operation_ls(collection_id, path=path))
+        entries = list(islice(iter(client.operation_ls(collection_id, path=path)), 201))
     except GlobusAPIError as error:
+        if getattr(error, "http_status", None) == 401:
+            return jsonify(error="Sign in again to browse this collection.", login_url=url_for("login")), 401
         if error.info.consent_required:
             collection_ids = session.get("consent_collection_ids", [])
             if collection_id not in collection_ids:
                 session["consent_collection_ids"] = collection_ids + [collection_id]
-            session["post_auth_redirect"] = url_for(
-                "browse_collection",
-                collection_id=collection_id,
-                path=path,
-            )
-            return redirect(url_for("login"))
-        entries = []
-        browse_error = collection_browse_error(error)
+            session["post_auth_redirect"] = url_for("index")
+            return jsonify(error="Additional collection consent is required.", login_url=url_for("login")), 403
+        return jsonify(error=collection_browse_error(error)), 400
     parent_path = posixpath.dirname(path.rstrip("/")) or "/"
-
-    return render_template(
-        "collection_browse.html",
-        collection_id=collection_id,
-        path=path,
-        parent_path=parent_path,
-        entries=entries,
-        browse_error=browse_error,
-        child_path=child_path,
-    )
+    response = jsonify(path=path, parent_path=parent_path, limited=len(entries) > 200,
+                       folders=[{"name": entry.get("name", ""),
+                                 "path": child_path(path, entry.get("name", ""))}
+                                for entry in entries[:200] if entry.get("type") == "dir"])
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @app.post("/destination/select")
 def select_destination():
     if not session.get("globus_identity") or not session.get("token_reference"):
-        return redirect(url_for("login"))
-
+        return jsonify(error="Sign in again to browse this collection.", login_url=url_for("login")), 401
+    limited = rate_limit_response(
+        f"identity:{session['globus_identity']}", "collection_browse", COLLECTION_BROWSE_RATE_LIMITS,
+    )
+    if limited is not None:
+        return jsonify(error="Too many folder requests. Try again later."), limited[1], limited[2]
     collection_id = request.form.get("collection_id", "").strip()
     path = request.form.get("path", "") or "/"
     if not path.startswith("/"):
@@ -585,33 +589,41 @@ def select_destination():
         collection_id = validate_collection_id(collection_id)
         validate_destination_path(path)
     except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("index"))
-
+        return jsonify(error=str(error)), 400
     client = transfer_client()
     if client is None:
-        return redirect(url_for("login"))
-    collection = client.get_endpoint(
-        collection_id,
-        query_params={"fields": "display_name,canonical_name"},
-    )
-    session["destination_collection_id"] = collection_id
-    session["destination_collection_name"] = (
-        collection.get("display_name")
-        or collection.get("canonical_name")
-        or "Unknown collection"
-    )
-    session["destination_path"] = path
-
-    return redirect(url_for("index"))
+        return jsonify(error="Sign in again to browse this collection.", login_url=url_for("login")), 401
+    try:
+        entries = list(islice(iter(client.operation_ls(collection_id, path=path)), 201))
+        collection = client.get_endpoint(collection_id, query_params={"fields": "display_name,canonical_name"})
+    except GlobusAPIError as error:
+        if getattr(error, "http_status", None) == 401:
+            return jsonify(error="Sign in again to browse this collection.", login_url=url_for("login")), 401
+        if error.info.consent_required:
+            collection_ids = session.get("consent_collection_ids", [])
+            if collection_id not in collection_ids:
+                session["consent_collection_ids"] = collection_ids + [collection_id]
+            session["post_auth_redirect"] = url_for("index")
+            return jsonify(error="Additional collection consent is required.", login_url=url_for("login")), 403
+        return jsonify(error=collection_browse_error(error)), 400
+    name = collection.get("display_name") or collection.get("canonical_name") or "Unknown collection"
+    selection_id = str(uuid.uuid4())
+    session.update(destination_collection_id=collection_id, destination_collection_name=name,
+                   destination_path=path, destination_selection_id=selection_id)
+    response = jsonify(collection_id=collection_id, collection_name=name, selection_id=selection_id,
+                       path=path, parent_path=posixpath.dirname(path.rstrip("/")) or "/",
+                       limited=len(entries) > 200,
+                       folders=[{"name": item.get("name", ""), "path": child_path(path, item.get("name", ""))}
+                                for item in entries[:200] if item.get("type") == "dir"])
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @app.post("/destination/reset")
 def reset_destination():
-    session.pop("destination_collection_id", None)
-    session.pop("destination_collection_name", None)
-    session.pop("destination_path", None)
-    return redirect(url_for("index"))
+    for key in ("destination_collection_id", "destination_collection_name", "destination_path", "destination_selection_id"):
+        session.pop(key, None)
+    return jsonify(reset=True)
 
 
 def owned_export_job(job_id):
