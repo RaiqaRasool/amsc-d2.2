@@ -685,9 +685,29 @@
 
       const jobsPanel = document.getElementById("jobs-panel");
       let jobsRefreshInProgress = false;
+      let jobsDeletionInProgress = false;
+      const selectedJobs = new Set();
+      function updateJobSelection() {
+        if (!jobsPanel) return;
+        const boxes = [...jobsPanel.querySelectorAll("[data-select-job]:not(:disabled)")];
+        const visible = new Set(boxes.map(box => box.dataset.selectJob));
+        [...selectedJobs].forEach(id => { if (!visible.has(id)) selectedJobs.delete(id); });
+        boxes.forEach(box => { box.checked = selectedJobs.has(box.dataset.selectJob); });
+        const all = jobsPanel.querySelector("[data-select-all-jobs]");
+        if (all) {
+          all.disabled = boxes.length === 0;
+          all.checked = boxes.length > 0 && selectedJobs.size === boxes.length;
+          all.indeterminate = selectedJobs.size > 0 && selectedJobs.size < boxes.length;
+        }
+        const button = jobsPanel.querySelector("[data-delete-selected]");
+        if (button) {
+          button.textContent = "Delete selected (" + selectedJobs.size + ")";
+          button.disabled = selectedJobs.size === 0 || jobsDeletionInProgress;
+        }
+      }
 
       async function refreshJobsPanel() {
-        if (!jobsPanel || jobsRefreshInProgress || document.hidden) {
+        if (!jobsPanel || jobsRefreshInProgress || jobsDeletionInProgress || document.hidden) {
           return;
         }
 
@@ -697,7 +717,11 @@
             cache: "no-store",
           });
           if (response.ok) {
-            jobsPanel.innerHTML = await response.text();
+            const html = await response.text();
+            if (!jobsDeletionInProgress) {
+              jobsPanel.innerHTML = html;
+              updateJobSelection();
+            }
           }
         } catch {
           // Keep the current table when a background refresh fails.
@@ -706,15 +730,55 @@
         }
       }
 
-      jobsPanel?.addEventListener("click", event => {
+      jobsPanel?.addEventListener("change", event => {
+        const box = event.target;
+        if (box.matches("[data-select-all-jobs]")) {
+          jobsPanel.querySelectorAll("[data-select-job]:not(:disabled)").forEach(row => {
+            if (box.checked) selectedJobs.add(row.dataset.selectJob);
+            else selectedJobs.delete(row.dataset.selectJob);
+          });
+        } else if (box.matches("[data-select-job]") && !box.disabled) {
+          if (box.checked) selectedJobs.add(box.dataset.selectJob);
+          else selectedJobs.delete(box.dataset.selectJob);
+        }
+        updateJobSelection();
+      });
+      jobsPanel?.addEventListener("click", async event => {
         if (event.target.closest("[data-refresh-history]")) refreshJobsPanel();
+        const button = event.target.closest("[data-delete-selected]");
+        if (!button || !selectedJobs.size || jobsDeletionInProgress) return;
+        const ids = [...selectedJobs];
+        if (!window.confirm("Delete " + ids.length + " selected jobs? This permanently removes their local history entries and generated files if no other jobs use them. Globus tasks and remote files are unchanged.")) return;
+        jobsDeletionInProgress = true;
+        updateJobSelection();
+        const message = document.getElementById("history-message");
+        try {
+          const body = new FormData();
+          body.set("csrf_token", button.dataset.csrf);
+          ids.forEach(id => body.append("job_ids", id));
+          const response = await fetch(button.dataset.deleteUrl, {method: "POST", body, headers: {Accept: "application/json"}});
+          if (!response.headers.get("content-type")?.includes("application/json")) throw new Error("Could not delete selected jobs. Refresh the page and try again.");
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not delete selected jobs.");
+          result.deleted.forEach(id => selectedJobs.delete(id));
+          message.textContent = "Deleted " + result.deleted.length + " jobs. Globus tasks and remote files are unchanged.";
+          if (result.failed.length) message.textContent += " Not deleted: " + result.failed.map(item => item.job_id + ": " + item.error).join("; ");
+        } catch (error) { message.textContent = error.message; }
+        finally {
+          jobsDeletionInProgress = false;
+          updateJobSelection();
+          await refreshJobsPanel();
+        }
       });
       jobsPanel?.addEventListener("submit", async event => {
         const form = event.target;
         if (!form.matches(".job-delete-form")) return;
         event.preventDefault();
+        if (jobsDeletionInProgress) return;
         if (!window.confirm("Delete job " + form.dataset.jobId + "? This permanently removes its local history entry and its generated file if no other job uses it. Globus tasks and remote files are unchanged.")) return;
         const button = event.submitter;
+        jobsDeletionInProgress = true;
+        updateJobSelection();
         button.disabled = true;
         const message = document.getElementById("history-message");
         try {
@@ -723,10 +787,16 @@
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "Could not delete this job.");
           message.textContent = "Job deleted. Globus tasks and remote files are unchanged.";
-          await refreshJobsPanel();
+          selectedJobs.delete(form.dataset.jobId);
         } catch (error) { message.textContent = error.message; }
-        finally { button.disabled = false; }
+        finally {
+          jobsDeletionInProgress = false;
+          button.disabled = false;
+          updateJobSelection();
+          await refreshJobsPanel();
+        }
       });
+      updateJobSelection();
       setInterval(refreshJobsPanel, 5000);
     </script>
   </body>

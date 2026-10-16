@@ -770,6 +770,35 @@ def transfer_existing_output(job_id):
     return redirect(url_for("index"))
 
 
+@app.post("/jobs/delete-selected")
+def delete_selected_jobs():
+    identity = session.get("globus_identity")
+    if not session.get("logged_in") or not identity:
+        abort(401)
+    submitted = request.form.getlist("job_ids")
+    if not submitted or len(submitted) > 20 or any(not value or len(value) > 64 for value in submitted):
+        return jsonify(error="Select between 1 and 20 jobs shown in history."), 400
+    job_ids = list(dict.fromkeys(submitted))
+    # Verify all ownership before making any changes; do not reveal foreign jobs.
+    if any(get_job_for_identity(job_id, identity) is None for job_id in job_ids):
+        abort(404)
+    deleted, failed = [], []
+    for job_id in job_ids:
+        try:
+            if delete_owned_job(job_id, identity):
+                deleted.append(job_id)
+                if session.get("existing_transfer_job") == job_id:
+                    session.pop("existing_transfer_job", None)
+            else:
+                failed.append({"job_id": job_id, "error": "Job no longer exists."})
+        except ValueError as error:
+            failed.append({"job_id": job_id, "error": str(error)})
+        except OSError:
+            app.logger.exception("Could not delete local export for job %s", job_id)
+            failed.append({"job_id": job_id, "error": "Could not remove its local file. The job was kept."})
+    return jsonify(deleted=deleted, failed=failed)
+
+
 @app.post("/jobs/<job_id>/delete")
 def delete_job(job_id):
     owned_export_job(job_id)

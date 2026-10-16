@@ -55,6 +55,28 @@ assert not path.exists() and jobs.get_job('attempt') is None
 create('missing')
 assert client.post('/jobs/missing/delete', data={'csrf_token':'csrf'}).status_code == 200
 assert client.post('/jobs/missing/delete', data={'csrf_token':'csrf'}).status_code == 404
+# Batch ownership is checked before any deletion.
+create('selected')
+jobs.create_job(job_id='foreign', status='query_failed', query_type='point', query_params={}, globus_identity='other')
+assert client.post('/jobs/delete-selected',data={'csrf_token':'csrf','job_ids':['selected','foreign']}).status_code == 404
+assert jobs.get_job('selected')
+assert client.post('/jobs/delete-selected',data={'job_ids':['selected']}).status_code == 302
+assert client.post('/jobs/delete-selected',data={'csrf_token':'csrf'}).status_code == 400
+assert client.post('/jobs/delete-selected',data={'csrf_token':'csrf','job_ids':['selected']*21}).status_code == 400
+create('active','queued')
+result=client.post('/jobs/delete-selected',data={'csrf_token':'csrf','job_ids':['selected','active','selected']}).json
+assert result['deleted']==['selected'] and result['failed'][0]['job_id']=='active'
+assert jobs.get_job('active')['status']=='queued'
+# Removing both finished references deletes the file exactly once.
+with jobs.jobs_db() as connection: connection.execute("DELETE FROM mya_transfer_jobs")
+path.write_text('data')
+create('one');create('two')
+result=client.post('/jobs/delete-selected',data={'csrf_token':'csrf','job_ids':['one','two']}).json
+assert result=={'deleted':['one','two'],'failed':[]} and not path.exists()
+create('kept');create('deleted')
+with patch.object(module,'delete_owned_job',side_effect=[PermissionError('denied'),True]):
+    result=client.post('/jobs/delete-selected',data={'csrf_token':'csrf','job_ids':['kept','deleted']}).json
+assert result['deleted']==['deleted'] and result['failed'][0]['job_id']=='kept'
 '''
             result = subprocess.run([sys.executable, '-c', script], env=environment,
                                     cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)

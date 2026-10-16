@@ -2,6 +2,19 @@
 
 ## Expected Behavior
 
+- Finished jobs have selection checkboxes and Delete selected (N). Select all
+  applies only to deletable rows currently shown, never undisplayed history.
+  Active rows are disabled. Selection survives status refreshes for rows still
+  shown and eligible; new rows are not automatically selected.
+- Bulk deletion confirms the selected count and local/Globus scope. The server
+  accepts at most 20 IDs (the history page size), verifies ownership of all
+  supplied IDs before changes, then rechecks each job's state under a write lock.
+  No blanket delete-all operation exists.
+- Bulk results report deleted IDs and individual failures; a failed item does
+  not roll back successful deletions. Shared files survive until the last
+  referencing job is removed. Requests and UI prevent duplicate in-flight clicks.
+
+
 - A trash icon appears for finished jobs; deletion asks for confirmation naming
   the job and explaining local history/file deletion and unchanged Globus data.
 - Only the authenticated owner can delete, using a CSRF-protected POST.

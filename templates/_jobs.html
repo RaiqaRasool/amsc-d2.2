@@ -20,11 +20,14 @@
         <h2>History</h2>
         <button type="button" class="button-secondary icon-button" data-refresh-history title="Refresh statuses" aria-label="Refresh statuses">↻</button>
       </div>
+      <button type="button" class="button-secondary" data-delete-selected data-delete-url="{{ url_for('delete_selected_jobs') }}" data-csrf="{{ csrf_token }}" disabled>Delete selected (0)</button>
     </div>
+    <p class="helper">Select finished jobs to delete. Select all applies only to deletable jobs shown below.</p>
     <div class="table-wrap">
       <table class="history-table">
         <thead>
           <tr>
+            <th><input type="checkbox" class="history-checkbox" data-select-all-jobs aria-label="Select all deletable jobs shown" title="Select all deletable jobs shown"></th>
             <th>Submitted job</th>
             <th>Status</th>
             <th>Generated File</th>
@@ -38,6 +41,7 @@
         <tbody>
           {% for job in jobs %}
             <tr>
+              <td><input type="checkbox" class="history-checkbox" data-select-job="{{ job.job_id }}" aria-label="Select job {{ job.job_id }}" {% if not job.can_delete %}disabled title="Wait for this job and its transfer to finish"{% endif %}></td>
               <td>
                 <a href="{{ url_for('job_status', job_id=job.job_id) }}" target="_blank" rel="noopener noreferrer">
                   <code title="{{ job.job_id }}">{{ job.job_id[:8] }}…</code>

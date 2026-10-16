@@ -722,12 +722,14 @@ th {
 .history-updated time span { display: block; color: var(--muted); font-size: 12px; }
 .history-updated { white-space: nowrap; }
 .history-table .helper-error { display: inline-block; max-width: 280px; overflow-wrap: anywhere; }
-.history-table td:nth-child(3) { min-width: 210px; }
-.history-table td:nth-child(5) { min-width: 200px; }
+.history-table td:nth-child(4) { min-width: 210px; }
+.history-table td:nth-child(6) { min-width: 200px; }
 
-.history-table td:first-child code,
+.history-table td:nth-child(2) code,
 .history-table .job-status,
-.history-table td:nth-child(6) { white-space: nowrap; }
+.history-table td:nth-child(7) { white-space: nowrap; }
 
 .history-heading { display: flex; align-items: center; gap: 8px; }
 .job-delete-form { display: inline-block; margin: 0; vertical-align: middle; }
+
+.history-checkbox { min-width: auto; min-height: auto; width: auto; }
