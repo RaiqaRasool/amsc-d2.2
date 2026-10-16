@@ -54,7 +54,7 @@ from jobs import (
 )
 from oauth_states import consume_oauth_state, store_oauth_state
 from query_validation import validate_query_params
-from query_prefill import query_form_values
+from query_prefill import query_form_values, query_snapshot
 from result_preview import open_export, preview_export
 from retention import delete_owned_job
 from jobs import TERMINAL_JOB_STATUSES
@@ -126,17 +126,37 @@ def collection_browse_error(error):
 def open_transfer_export(job):
     allowed = ("query_complete", "transfer_succeeded", "transfer_failed", "transfer_auth_failed")
     if job["query_type"] == "transfer":
-        allowed = ("transfer_failed", "transfer_auth_failed", "query_failed")
+        allowed = ("transfer_succeeded", "transfer_failed", "transfer_auth_failed", "query_failed")
     if job["status"] not in allowed:
         raise ValueError("This job is not ready for a transfer attempt.")
     # Older workers marked transfer-only attempts query_failed despite a retained export.
     return open_export(dict(job, status="query_complete"))
 
 
+def source_query_for_job(job):
+    try:
+        return query_snapshot(job)
+    except (ValueError, TypeError, KeyError):
+        if job['query_type'] == 'transfer':
+            parent_id = job['query_params'].get('parent_job_id')
+            parent = get_job_for_identity(parent_id, job.get('globus_identity')) if parent_id else None
+            if parent and parent['query_type'] != 'transfer':
+                try:
+                    return query_snapshot(parent)
+                except (ValueError, TypeError, KeyError):
+                    pass
+    return None
+
+
 def job_for_display(job):
     if job is None:
         return None
     display_job = dict(job)
+    display_job["can_rerun"] = source_query_for_job(job) is not None
+    display_job["transfer_action_label"] = (
+        "Retry transfer" if job["query_type"] == "transfer" and job["status"] != "transfer_succeeded"
+        else "Transfer file again" if job["query_type"] == "transfer" else "Transfer"
+    )
     display_job["status_class"] = status_class(display_job["status"])
     source_path = display_job.get("source_path")
     destination_path = display_job.get("destination_path")
@@ -252,7 +272,10 @@ def index():
         if previous_job is None:
             abort(404)
         try:
-            query_prefill = query_form_values(previous_job)
+            snapshot = source_query_for_job(previous_job)
+            if snapshot is None:
+                raise ValueError
+            query_prefill = query_form_values(snapshot)
         except (ValueError, TypeError):
             flash("This request cannot be prefilled. Please enter its query parameters manually.", "error")
     return render_template(
@@ -725,8 +748,12 @@ def transfer_existing_output(job_id):
         label = transfer_label(request.form.get("transfer_label", ""))
         validate_transfer_label(label)
         attempt_id = str(uuid.uuid4())
+        transfer_params = {"parent_job_id": original["query_params"].get("parent_job_id", job_id)}
+        snapshot = source_query_for_job(original)
+        if snapshot is not None:
+            transfer_params["source_query"] = snapshot
         create_job(job_id=attempt_id, status="queued", query_type="transfer",
-                   query_params={"parent_job_id": original["query_params"].get("parent_job_id", job_id)}, globus_identity=identity,
+                   query_params=transfer_params, globus_identity=identity,
                    user_identity=session.get("user_identity"),
                    source_collection_id=original["source_collection_id"], source_path=original["source_path"],
                    destination_collection_id=collection, destination_path=folder,
@@ -759,6 +786,15 @@ def delete_job(job_id):
     return jsonify(deleted=True)
 
 
+@app.get("/jobs/<job_id>/query")
+def job_query_details(job_id):
+    job = owned_export_job(job_id)
+    response = app.make_response(render_template(
+        "query_details.html", job=job, source_query=source_query_for_job(job)))
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
 @app.get("/jobs/<job_id>/preview")
 def job_preview(job_id):
     job = owned_export_job(job_id)
@@ -770,6 +806,7 @@ def job_preview(job_id):
         return "This result is not available. It may still be running or may have expired.", 404
     response = app.make_response(render_template(
         "result_preview.html", job=job, filename=filename, size=size, preview=preview,
+        source_query=source_query_for_job(job),
     ))
     response.headers["Cache-Control"] = "private, no-store"
     return response

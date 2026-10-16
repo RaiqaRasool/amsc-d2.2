@@ -62,7 +62,7 @@ with patch.object(module, 'transfer_client', return_value=MagicMock()), patch.ob
     assert len(attempts) == 1
     attempt = attempts[0]
     assert attempt['source_path'] == '/exports/' + filename
-    assert attempt['query_params'] == {'parent_job_id':'original'}
+    assert attempt['query_params'] == {'parent_job_id':'original','source_query':{'query_type':'mysampler','query_params':{}}}
     assert attempt['token_reference'] == 'fresh' and attempt['status'] == 'queued'
     assert jobs.get_job('original')['status'] == 'query_complete'
     assert jobs.export_has_other_jobs(jobs.get_job('original'))

@@ -13,8 +13,9 @@
     </div></header>
     <main class="container"><section class="panel result-preview">
       <h2>{{ filename }}</h2>
-      <p>{{ size }} bytes · {{ job.query_type }}</p>
-      <details><summary>Query parameters</summary><pre>{{ job.query_params|tojson(indent=2) }}</pre></details>
+      <p>{{ size }} bytes · {{ source_query.query_type if source_query else 'original query unavailable' }}</p>
+      {% if source_query %}<details><summary>Query parameters</summary><pre>{{ source_query.query_params|tojson(indent=2) }}</pre></details>
+      {% else %}<p>Original query parameters are unavailable for this older transfer.</p>{% endif %}
       <p><a href="{{ url_for('job_download', job_id=job.job_id) }}">Download complete result</a></p>
       <p>This is a partial preview: at most 100 CSV rows, 50 columns, and 256 KiB of file content.
         Long cells are shortened to 500 characters. Download the complete result for all data.</p>

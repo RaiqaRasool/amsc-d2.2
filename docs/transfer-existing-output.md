@@ -22,8 +22,19 @@ Transfer a retained query result without rerunning MYA.
   and folder rather than repeating the exported filename. Long names and paths
   are ellipsized with full-value tooltips. Update times show New York local date,
   time, timezone abbreviation and UTC offset; raw timestamps remain unchanged.
-- History actions use icons with tooltips and accessible names for Run again,
-  Transfer, and Retry transfer.
+- History actions use icons with tooltips and accessible names for View query
+  parameters, Run query again, Transfer, Retry transfer, and Transfer file again.
+  Viewing and rerunning a transfer row use the original query, not query_type=transfer.
+- New transfer attempts store an allowlisted snapshot of source query type and
+  inputs in query_params.source_query. Credentials, destinations, transfer labels,
+  and task state are excluded. Further attempts copy that snapshot, so history
+  deletion or retention of the original query does not remove these inputs.
+- Older attempts without snapshots resolve the original query by owner-scoped
+  parent lookup when possible. Otherwise details explain that inputs are
+  unavailable and the rerun icon is omitted. Existing file transfer still works.
+- Successful transfer attempts with retained outputs offer Transfer file again.
+  Failed attempts offer Retry transfer. Both open destination review and require
+  explicit submission using current authorization; neither re-executes MYA.
 
 - Owner authentication and CSRF are required. Other users cannot access or transfer
   a query result. File access uses the same restricted export opener as preview.
@@ -34,15 +45,17 @@ Transfer a retained query result without rerunning MYA.
 - Attempts use the existing submission rate limits, queue limits, token retirement
   checks, transfer submission, status refresh, and Globus task links.
 - Query-only results and finished query-and-transfer results can be transferred.
-  Transfer attempt rows show only available transfer actions; the original-query
-  relationship is retained internally.
+  Transfer attempt rows retain the original-query relationship internally and
+  expose source-query inspection and rerun actions when those inputs are available.
   Failed attempts offer Retry transfer… when the export remains available,
   including legacy query_failed attempts processed by an older worker. Retry
   returns to destination review and creates a new attempt with current credentials.
 - There is no automatic retry: another attempt is an explicit user action and
   may create another Globus transfer. The original query record is unchanged.
 - Shared exports are retained while another job references them. Original query
-  records may expire before later attempts, so the internal reference may point to an expired record.
+  records may expire before later attempts; saved query snapshots remain usable.
+- Preview displays the source query type and inputs for transfer-only rows, using
+  the same snapshot/fallback resolution as history details and rerun.
 
 ## Failure Behavior
 
@@ -61,6 +74,9 @@ Transfer a retained query result without rerunning MYA.
 
 ## Verification
 
+- `tests/test_transfer_query_snapshot.py` covers snapshot survival after deletion,
+  owner-scoped legacy fallback, secret exclusion, original-query prefill/preview,
+  and successful retransfer with current authorization.
 - `tests/test_existing_transfer.py` covers ownership, validation, separate history,
   current authorization, retention, and worker dispatch without MYA execution.
 - Real Globus submission requires an authenticated local or deployed environment;

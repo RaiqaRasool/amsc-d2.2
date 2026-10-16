@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Query parameters — AmSC</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <header class="topbar"><div class="topbar-inner">
+      <h1 class="brand">Query parameters</h1>
+      <a class="topbar-link" href="{{ url_for('index') }}">Back to queries</a>
+    </div></header>
+    <main class="container"><section class="panel">
+      <p>Submitted job: <code>{{ job.job_id }}</code></p>
+      {% if source_query %}
+        <h2>{{ source_query.query_type }}</h2>
+        <pre>{{ source_query.query_params|tojson(indent=2) }}</pre>
+        <p><a href="{{ url_for('index', reuse=job.job_id, cancel_transfer=1, _anchor='query-form') }}">Run query again</a></p>
+        <p>This opens the query form for review. Nothing is submitted automatically.</p>
+      {% else %}
+        <p>Original query parameters are unavailable for this older transfer. Its original query may have been deleted or expired before snapshots were saved.</p>
+      {% endif %}
+    </section></main>
+  </body>
+</html>

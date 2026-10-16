@@ -65,3 +65,7 @@ complete export through Globus. Retrying/retriggering requests is outside scope.
   full-file download, history actions, lifecycle states, deleted files/jobs,
   path restrictions, and symlink rejection.
 - Run `.venv/bin/python -m unittest discover -s tests -p 'test_result*.py'`.
+
+Transfer-only previews show the source query type and allowlisted inputs from
+a saved snapshot, falling back to the owner’s original job for older attempts.
+Missing legacy context is explained instead of showing a parent ID as query parameters.

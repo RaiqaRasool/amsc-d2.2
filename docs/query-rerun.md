@@ -2,7 +2,10 @@
 
 ## Behavior
 
-- Each history row links to the query form with its historical job ID.
+- History rows with available query inputs link to the query form using their
+  historical job ID. Transfer-only rows use a saved source-query snapshot, or
+  owner-scoped original-job fallback for legacy attempts. Missing legacy context
+  omits the rerun action and shows an explanation on query inspection.
 - Only the logged-in job owner can prefill that request. Unauthenticated requests
   return 401; unknown or other-owner jobs return 404.
 - Opening the link performs no query, transfer, or job creation. Failed and
@@ -20,7 +23,9 @@
 - Normal form submission creates a new job using current validation, CSRF,
   limits, authorization, and explicit Query only/Query and transfer choice.
 - Unsupported or malformed historical parameters show a friendly message.
-- File deletion and history hiding are separate future steps.
+- View query parameters opens an owner-scoped, private/no-store detail page,
+  without submitting work. It remains available after file deletion when the job
+  and source query snapshot still exist. Job deletion is a separate action.
 
 ## Components and Verification
 
