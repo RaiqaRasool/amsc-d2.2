@@ -1,4 +1,5 @@
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 from jlab_archiver_client import (
     Channel,
@@ -61,21 +62,27 @@ def run_mysampler(start: datetime, interval: int, num_samples: int, pvlist: list
 def run_interval(
     begin,
     end,
-    prior_point=True,
+    prior_point=False,
     pvlist=None,
     channel=None,
 ):
     begin = datetime.fromisoformat(begin) if isinstance(begin, str) else begin
     end = datetime.fromisoformat(end) if isinstance(end, str) else end
     if pvlist:
-        # The client always includes prior points when merging multiple PVs.
-        data, _, _ = Interval.run_parallel(
-            pvlist=pvlist,
-            begin=begin,
-            end=end,
-            prior_point=prior_point,
-            deployment=MYA_DEPLOYMENT,
-        )
+        def fetch_channel(pv):
+            query = IntervalQuery(channel=pv, begin=begin, end=end,
+                                  prior_point=prior_point, deployment=MYA_DEPLOYMENT)
+            result = Interval(query)
+            result.run()
+            if result.data is None:
+                raise RuntimeError(f"Interval returned no response for PV: {pv}")
+            return result.data
+
+        # run_parallel forces prior points on; query each PV explicitly instead.
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            series = list(executor.map(fetch_channel, pvlist))
+        # Retain the client's merging and disconnect-aware filling behavior.
+        data = Interval._combine_series(series)
     elif channel:
         query = IntervalQuery(
             channel=channel,
@@ -90,8 +97,8 @@ def run_interval(
     else:
         raise ValueError("Interval query requires pvlist or channel.")
 
-    if data is None or (hasattr(data, "empty") and data.empty):
-        raise RuntimeError("Interval query returned no data.")
+    if data is None:
+        raise RuntimeError("Interval query returned no response.")
     return data
 
 

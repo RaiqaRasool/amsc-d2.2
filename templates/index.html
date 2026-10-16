@@ -132,9 +132,9 @@
                       <small>{% if demo_catalog_enabled %}Use the ? help icon beside PVs to open the demo catalog for PV names and stored event dates.{% else %}Use archived EPICS PV names.{% endif %}</small>
                     </label>
                     <label class="checkbox-label field-wide">
-                      <input type="checkbox" name="interval_prior_point" value="true" checked disabled>
-                      Include the point immediately before the interval (single PV)
-                      <small>For multiple PVs, the prior point is always included.</small>
+                      <input type="checkbox" name="interval_prior_point" value="true" disabled>
+                      Include prior value at interval boundaries
+                      <small>Uses the last known value before the start; boundary timestamps can appear even when no events were recorded in this interval.</small>
                     </label>
                   </section>
 

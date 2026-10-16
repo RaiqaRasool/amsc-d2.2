@@ -75,7 +75,7 @@ class MyaQueryConfigTests(unittest.TestCase):
             channel="pv",
             begin=datetime(2026, 1, 1),
             end=datetime(2026, 1, 2),
-            prior_point=True,
+            prior_point=False,
             deployment=mya_query.MYA_DEPLOYMENT,
         )
 
@@ -115,30 +115,36 @@ class MyaQueryConfigTests(unittest.TestCase):
 
     @patch("mya_query.Interval")
     @patch("mya_query.IntervalQuery")
-    def test_parallel_interval_returns_only_data(self, query_class, interval_class):
-        data = FakeData()
-        interval_class.run_parallel.return_value = (data, {"pv": []}, {"pv": {}})
-
-        self.assertIs(
-            data,
-            mya_query.run_interval("2026-01-01", "2026-01-02", pvlist=["pv", "pv2"]),
-        )
-        interval_class.run_parallel.assert_called_once_with(
-            pvlist=["pv", "pv2"],
-            begin=datetime(2026, 1, 1),
-            end=datetime(2026, 1, 2),
-            prior_point=True,
-            deployment=mya_query.MYA_DEPLOYMENT,
-        )
-        query_class.assert_not_called()
+    def test_multiple_pvs_respect_prior_option(self, query_class, interval_class):
+        for prior in (False, True):
+            query_class.reset_mock()
+            interval_class.reset_mock()
+            data = FakeData()
+            interval_class.return_value.data = data
+            interval_class._combine_series.return_value = data
+            self.assertIs(data, mya_query.run_interval(
+                "2026-01-01", "2026-01-02", pvlist=["pv", "pv2"], prior_point=prior))
+            self.assertEqual(query_class.call_count, 2)
+            self.assertEqual({call.kwargs["channel"] for call in query_class.call_args_list}, {"pv", "pv2"})
+            self.assertTrue(all(call.kwargs["prior_point"] is prior for call in query_class.call_args_list))
+            interval_class.run_parallel.assert_not_called()
 
     @patch("mya_query.Interval")
-    def test_parallel_interval_rejects_empty_data(self, interval_class):
+    @patch("mya_query.IntervalQuery")
+    def test_interval_accepts_empty_event_history(self, query_class, interval_class):
         data = FakeData()
         data.empty = True
-        interval_class.run_parallel.return_value = (data, {}, {})
-        with self.assertRaisesRegex(RuntimeError, "Interval query returned no data"):
-            mya_query.run_interval("2026-01-01", "2026-01-02", pvlist=["pv"])
+        interval_class.return_value.data = data
+        interval_class._combine_series.return_value = data
+        for options in ({"channel": "pv"}, {"pvlist": ["pv", "pv2"]}):
+            self.assertIs(data, mya_query.run_interval("2026-01-01", "2026-01-02", **options))
+
+    @patch("mya_query.Interval")
+    @patch("mya_query.IntervalQuery")
+    def test_interval_propagates_channel_errors(self, query_class, interval_class):
+        interval_class.return_value.run.side_effect = RuntimeError("backend failed")
+        with self.assertRaisesRegex(RuntimeError, "backend failed"):
+            mya_query.run_interval("2026-01-01", "2026-01-02", pvlist=["pv", "pv2"])
 
     @patch("mya_query.Channel")
     @patch("mya_query.ChannelQuery")

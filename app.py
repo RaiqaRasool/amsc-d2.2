@@ -471,7 +471,7 @@ def query_mya():
             query_params = {
                 "begin": begin.isoformat(),
                 "end": end.isoformat(),
-                "prior_point": len(pvlist) > 1 or request.form.get("interval_prior_point") == "true",
+                "prior_point": request.form.get("interval_prior_point") == "true",
             }
             if len(pvlist) == 1:
                 query_params["channel"] = pvlist[0]

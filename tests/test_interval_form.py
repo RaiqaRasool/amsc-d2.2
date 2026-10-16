@@ -29,7 +29,8 @@ with patch.object(module, 'transfer_client', return_value=object()), \
     for value, prior, expected in (
         (' pv1 ', False, {'channel': 'pv1', 'prior_point': False}),
         ('pv1', True, {'channel': 'pv1', 'prior_point': True}),
-        ('pv1, pv2', False, {'pvlist': ['pv1', 'pv2'], 'prior_point': True}),
+        ('pv1, pv2', False, {'pvlist': ['pv1', 'pv2'], 'prior_point': False}),
+        ('pv1, pv2', True, {'pvlist': ['pv1', 'pv2'], 'prior_point': True}),
     ):
         form = dict(base, interval_pvlist=value)
         if prior:
@@ -49,7 +50,8 @@ with patch.object(module, 'transfer_client', return_value=object()), \
     page = client.get('/').data
     assert b'name="interval_channel"' not in page
     assert b'name="interval_pvlist" maxlength="25699" required' in page
-    assert b'For multiple PVs, the prior point is always included.' in page
+    assert b'prior point is always included' not in page
+    assert b'name="interval_prior_point" value="true" disabled' in page
 '''
             result = subprocess.run([sys.executable, '-c', script], env=environment,
                                     cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)

@@ -26,6 +26,6 @@ def query_form_values(job):
                 timestamp = timestamp.astimezone(ZoneInfo('America/New_York')).replace(tzinfo=None)
             value = timestamp.isoformat()
         elif field == 'prior_point':
-            value = params.get(field, True)
+            value = params.get(field, False)
         result[f'{query_type}_{field}'] = value
     return result
