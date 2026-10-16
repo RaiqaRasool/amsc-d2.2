@@ -35,6 +35,19 @@ If documentation is unclear, say so instead of guessing. Prefer verified officia
 - Explain every code change: files modified, what changed, why, how it works, how it fits the architecture, and alternatives considered.
 - When asked for a commit message, use the `git-commit-formatter` skill if it is available. If it is not available, provide a short imperative commit message that clearly names the change.
 
+## User Notifications
+
+- Every new or changed transient notification (success, error, warning, or
+  informational banner/toast), including queued-job confirmations, must have a
+  visible × or Close control with an accessible label and keyboard support.
+- Reuse the existing notice-dismiss styling and dismissal pattern. Closing a
+  notification dismisses only its presentation: it must not alter query inputs,
+  cancel work, delete files, or change job/transfer state.
+- Do not auto-hide important notifications in place of an explicit close control.
+  Apply this to dynamically inserted notifications as well as initial rendering.
+- Persistent field labels, validation state, and job-status cells are not transient
+  notifications and should remain visible while they are relevant.
+
 ## Current Direction
 
 The CLI prototype is a native/thick-client implementation. The web prototype is expected to use a Globus Auth client appropriate for a Science Gateway / Web Application (Portal), pending confirmation from the official Globus docs during implementation.

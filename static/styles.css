@@ -733,3 +733,6 @@ th {
 .job-delete-form { display: inline-block; margin: 0; vertical-align: middle; }
 
 .history-checkbox { min-width: auto; min-height: auto; width: auto; }
+
+.dismissible-notice { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.dismissible-notice > span { min-width: 0; overflow-wrap: anywhere; }

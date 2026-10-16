@@ -21,7 +21,10 @@
     <main class="container">
       <div class="stack">
         {% for category, message in get_flashed_messages(with_categories=true) %}
-          <div class="notice notice-{{ category }}" role="alert">{{ message }}</div>
+          <div class="notice notice-{{ category }} dismissible-notice" role="alert" data-notification>
+            <span>{{ message }}</span>
+            <button type="button" class="notice-dismiss" data-dismiss-notification aria-label="Dismiss notification" title="Dismiss">×</button>
+          </div>
         {% endfor %}
 
         {% if logged_in %}
@@ -318,6 +321,11 @@
       </div>
     </main>
     <script>
+      document.addEventListener("click", event => {
+        const button = event.target.closest("[data-dismiss-notification]");
+        if (button) button.closest("[data-notification]")?.remove();
+      });
+
       const rerunNotice = document.getElementById("rerun-notice");
       if (rerunNotice) {
         rerunNotice.querySelector(".notice-dismiss").addEventListener("click", () => {
