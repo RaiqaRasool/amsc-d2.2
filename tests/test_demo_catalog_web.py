@@ -55,13 +55,13 @@ with patch.object(module, 'list_jobs', return_value=[]):
     page = client.get('/')
     assert b'Available demo data' not in page.data
     assert page.data.count(b'Use the ? help icon beside PVs') == 3
-    assert page.data.count(b'>available demo data catalog</a>') == 3
+    assert page.data.count(b'>available demo data catalog</a>') == 5
     assert b'docs.google.com/spreadsheets' not in page.data
     assert b'Only PVs available for now' not in page.data
     module.MYA_DEPLOYMENT = 'history'
     other_page = client.get('/').data
     assert b'Available demo data' not in other_page
-    assert other_page.count(b'docs.google.com/spreadsheets') == 3
+    assert other_page.count(b'docs.google.com/spreadsheets') == 5
     assert b'available demo data catalog' not in other_page
     assert client.get('/demo-catalog.csv').status_code == 404
     assert client.get('/demo-catalog').status_code == 404

@@ -176,7 +176,21 @@
                   <section class="query-panel form-grid" data-query-panel="point" hidden>
                     <h3 class="field-wide">Point Query</h3>
                     <label>
-                      Channel
+                      <span class="field-label">
+                        Channel
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing PVs">
+                          ?
+                          <span class="pv-help-tooltip" role="tooltip">
+                            {% if demo_catalog_enabled %}
+                              Choose PV names and stored event dates from the
+                              <a href="{{ url_for('demo_catalog') }}" target="_blank" rel="noopener noreferrer">available demo data catalog</a>.
+                            {% else %}
+                              MYA queries require EPICS variable names. You can try values from this
+                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                            {% endif %}
+                          </span>
+                        </span>
+                      </span>
                       <input name="point_channel" maxlength="256" required disabled>
                     </label>
                     <label>
@@ -188,7 +202,21 @@
                   <section class="query-panel form-grid" data-query-panel="channel" hidden>
                     <h3 class="field-wide">Channel Query</h3>
                     <label class="field-wide">
-                      Channel pattern
+                      <span class="field-label">
+                        Channel pattern
+                        <span class="pv-help" tabindex="0" aria-label="Help choosing PVs">
+                          ?
+                          <span class="pv-help-tooltip" role="tooltip">
+                            {% if demo_catalog_enabled %}
+                              Choose PV names and stored event dates from the
+                              <a href="{{ url_for('demo_catalog') }}" target="_blank" rel="noopener noreferrer">available demo data catalog</a>.
+                            {% else %}
+                              MYA queries require EPICS variable names. You can try values from this
+                            <a href="https://docs.google.com/spreadsheets/d/1C6lJ3S_5pj_ariDfMVNg5n1iyFbjDV4QYBcpYHo6-90/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">sample Hall-D list</a>, which is not a complete list of available variables.
+                            {% endif %}
+                          </span>
+                        </span>
+                      </span>
                       <input name="channel_pattern" maxlength="256" required disabled>
                     </label>
                   </section>

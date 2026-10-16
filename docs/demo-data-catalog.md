@@ -28,6 +28,8 @@ available, without updating frontend examples on every import.
 - The successful import CLI refreshes automatically, including identical reruns.
   Programmatic `import_bundle()` callers explicitly invoke `refresh_catalog()`.
 - The standalone refresh CLI supports manual database changes or catalog recovery.
+- PV help icons are available for all five query types, including Point’s
+  Channel and Channel’s Channel pattern fields.
 - The query page has no separate top catalog link; text below each PV box
   directs users to its ? help icon. PV help icons link to this catalog in the `docker` deployment; other deployments
   retain the external Hall-D reference spreadsheet. Demo help does not suggest
