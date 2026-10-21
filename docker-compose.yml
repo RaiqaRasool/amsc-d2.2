@@ -44,6 +44,7 @@ services:
     hostname: mya
     profiles: [demo]
     volumes:
+      - mya-data:/var/lib/mysql
       - ./docker/demo-archive/mya/100_channel.sql:/docker-entrypoint-initdb.d/100_channel.sql:ro,z
       - ./docker/demo-archive/mya/101_channel.sql:/docker-entrypoint-initdb.d/101_channel.sql:ro,z
       - ./docker/demo-archive/mya/102_channel.sql:/docker-entrypoint-initdb.d/102_channel.sql:ro,z
@@ -71,3 +72,6 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
+
+volumes:
+  mya-data:
